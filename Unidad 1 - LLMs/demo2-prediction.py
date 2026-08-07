@@ -9,7 +9,7 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
 
 # Explicar por qué el modelo no puede continuar el texto de manera coherente si no se le da una instrucción clara.
-instrucciones = "Continua el texto del usuario. No respondas, no expliques, no repitas lo ya escrito. Responde unicamente con UNA palabra."
+instrucciones = "Continua el texto del usuario. No respondas, no expliques. Responde unicamente con UNA palabra."
 
 prompt = "El gato esta en el"
 

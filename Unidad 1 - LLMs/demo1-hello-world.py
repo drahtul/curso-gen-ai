@@ -10,7 +10,7 @@ client = OpenAI(api_key=openai_api_key)
 
 response = client.responses.create(
     model="gpt-4o-mini",
-    input="Hola! Cómo estás?"
+    input="Hola mundo!"
 )
 
 print(response.output_text)

@@ -15,7 +15,7 @@ for i in range(3):
     response = client.responses.create(
         model="gpt-4o-mini",
         input=prompt,
-        max_output_tokens=30,
+        max_output_tokens=1000,
         temperature=temp
     )
     

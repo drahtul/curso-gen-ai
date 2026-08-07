@@ -18,7 +18,7 @@ response = client.responses.create(
     instructions=instrucciones,
     input=prompt,
     max_output_tokens=16,
-    top_logprobs=5,
+    top_logprobs=10,
     include=["message.output_text.logprobs"]
 )
 

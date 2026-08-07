@@ -12,7 +12,7 @@ prompt = "Un bate y una pelota cuestan $1.10 en total. " \
          "El bate cuesta $1.00 más que la pelota. " \
          "¿Cuánto cuesta la pelota?"
 
-# El reasoning effort puede ser: 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', and 'max'.
+# El reasoning effort puede ser: 'none', 'low', 'medium', 'high', 'xhigh', and 'max'.
 
 for effort in ["low", "xhigh"]:
     response = client.responses.create(
