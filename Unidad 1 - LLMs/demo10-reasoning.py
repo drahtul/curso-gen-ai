@@ -27,3 +27,4 @@ for effort in ["low", "xhigh"]:
     print("Tokens de output:", response.usage.output_tokens)
     print("Tokens de razonamiento:", response.usage.output_tokens_details.reasoning_tokens)
     print("Tokens totales:", response.usage.total_tokens)
+#FIXME arreglarrrr
