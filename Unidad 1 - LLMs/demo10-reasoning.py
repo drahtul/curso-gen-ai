@@ -14,7 +14,7 @@ prompt = "Un bate y una pelota cuestan $1.10 en total. " \
 
 # El reasoning effort puede ser: 'none', 'low', 'medium', 'high', 'xhigh', and 'max'.
 
-for effort in ["low", "xhigh"]:
+for effort in ["none", "low", "xhigh"]:
     response = client.responses.create(
         model="gpt-5.6-luna",
         input=prompt,
@@ -27,4 +27,3 @@ for effort in ["low", "xhigh"]:
     print("Tokens de output:", response.usage.output_tokens)
     print("Tokens de razonamiento:", response.usage.output_tokens_details.reasoning_tokens)
     print("Tokens totales:", response.usage.total_tokens)
-#FIXME arreglarrrr

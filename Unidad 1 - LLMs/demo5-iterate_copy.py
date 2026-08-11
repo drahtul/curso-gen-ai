@@ -5,16 +5,14 @@ from openai import OpenAI
 load_dotenv()
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
-
 client = OpenAI(api_key=openai_api_key)
 
 instrucciones = "Continua el texto del usuario. No respondas, no expliques, no repitas lo ya escrito."
 
-# texto = "Habia una vez un dragon"
 texto = "La biblioteca del pueblo guardaba un libro que"
-print(texto)
+print(f"Texto inicial: {texto}\n")
 
-for i in range(10):
+for i in range(1, 9):  # 8 iteraciones
     response = client.responses.create(
         model="gpt-4o-mini",
         instructions=instrucciones,
@@ -25,7 +23,6 @@ for i in range(10):
     )
 
     logprobs = response.output[0].content[0].logprobs
-    # print(logprobs)
 
     tokens = []
     for lp in logprobs:
@@ -33,11 +30,13 @@ for i in range(10):
             break
         tokens.append(lp.token)
 
-    palabra = "".join(tokens).strip()
-    if not palabra:
+    fragmento_nuevo = "".join(tokens).strip()
+
+    if not fragmento_nuevo:
         break
 
-    texto += " " + palabra
+    texto += " " + fragmento_nuevo
 
-    print(f"[{i+1}] +{palabra!r} = {len(tokens)} token(s) {[t for t in tokens]}")
-    print(f"    {texto}")
+    print(f"Iteración {i}")
+    print(f"Fragmento nuevo: {fragmento_nuevo}")
+    print(f"Texto acumulado: {texto}\n")
