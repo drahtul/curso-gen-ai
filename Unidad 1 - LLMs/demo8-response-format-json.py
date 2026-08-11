@@ -10,6 +10,8 @@ client = OpenAI(api_key=openai_api_key)
 
 response = client.responses.create(
     model="gpt-4o-mini",
+    temperature=1.0,
+    top_p=1.0,
     input="Dame un estudiante en JSON",
     text={
         "format": {
