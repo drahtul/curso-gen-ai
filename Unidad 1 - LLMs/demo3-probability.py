@@ -11,14 +11,15 @@ client = OpenAI(api_key=openai_api_key)
 
 instrucciones = "Continua el texto del usuario. No respondas, no expliques, no repitas lo ya escrito."
 
-prompt = "El perro esta en el"
+# prompt = "El perro esta en el"
+prompt = "El perro esta en el ja"
 
 response = client.responses.create(
     model="gpt-4o-mini",
     instructions=instrucciones,
     input=prompt,
     max_output_tokens=16,
-    top_logprobs=10,
+    top_logprobs=10, #10 palabras más probables
     include=["message.output_text.logprobs"]
 )
 

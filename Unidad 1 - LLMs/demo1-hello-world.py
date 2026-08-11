@@ -4,8 +4,6 @@ from openai import OpenAI
 
 load_dotenv()
 
-#TODO prueba todo
-
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI(api_key=openai_api_key)

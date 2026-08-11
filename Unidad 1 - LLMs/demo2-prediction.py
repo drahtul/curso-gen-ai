@@ -11,7 +11,9 @@ client = OpenAI(api_key=openai_api_key)
 # Explicar por qué el modelo no puede continuar el texto de manera coherente si no se le da una instrucción clara.
 instrucciones = "Continua el texto del usuario. No respondas, no expliques. Responde unicamente con UNA palabra."
 
-prompt = "El gato esta en el"
+# prompt = "El gato esta en el"
+#sin instruct
+prompt = "El gato esta en el patio trasero"
 
 response = client.responses.create(
     model="gpt-4o-mini",

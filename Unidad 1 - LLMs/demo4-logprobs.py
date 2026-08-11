@@ -12,19 +12,22 @@ client = OpenAI(api_key=openai_api_key)
 instrucciones = "Responde unicamente con UNA palabra, en minusculas y sin punto final."
 
 preguntas = [
-    "Cual es la capital de Uruguay?",
-    "Dime una palabra esdrújula.",
-    "Inventa una palabra que no exista.",
+    # "Cual es la capital de Uruguay?",
+    # "Dime una palabra esdrújula.",
+    "crea un nombre para una marca de auto"
+    # "Inventa una palabra que no exista.",
 ]
 
 for pregunta in preguntas:
     response = client.responses.create(
-        model="gpt-4o-mini",
-        instructions=instrucciones,
-        input=pregunta,
-        max_output_tokens=16,
-        top_logprobs=3,
-        include=["message.output_text.logprobs"]
+        model="gpt-4o-mini", # Modelo que vamos a usar
+        instructions=instrucciones, # Instrucción que le damos al modelo para que responda de cierta manera
+        input=pregunta, # Pregunta que le hacemos al modelo
+        max_output_tokens=16, # Tokenes máximos de salida
+        top_logprobs=10, # Distribución de probabilidad de las 3 palabras más probables
+        include=["message.output_text.logprobs"], # Es para incluir la información de logprobs en la respuesta, que nos da la probabilidad de cada token generado
+        temperature=0, # Controla la creatividad del modelo, 1 es el creativo
+        top_p=0 # Controla la diversidad de las respuestas, 0.1 significa que solo considerará las palabras más probables
     )
 
     logprobs = response.output[0].content[0].logprobs
