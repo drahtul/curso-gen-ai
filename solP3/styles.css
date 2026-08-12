@@ -113,7 +113,8 @@ img {
     margin: 0 0 0.8rem;
 }
 
-.hero-text p {
+.hero-subtitle,
+.hero-description {
     margin: 0 0 1rem;
 }
 
