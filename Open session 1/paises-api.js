@@ -22,7 +22,8 @@ app.use((req, res, next) => {
   next();
 });
 
-const API_KEY = process.env.RESTCOUNTRIES_API_KEY;
+const API_KEY = "rc_live_51136b603bfe489eaec1cf5be3352449";
+// const API_KEY = process.env.RESTCOUNTRIES_API_KEY;
 const API_BASE = "https://api.restcountries.com/countries/v5";
 
 let countriesCache = null;
