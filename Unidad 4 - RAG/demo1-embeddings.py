@@ -1,9 +1,16 @@
-from sentence_transformers import SentenceTransformer
+import importlib
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import os
 from dotenv import load_dotenv
 from huggingface_hub import login
+
+try:
+    SentenceTransformer = importlib.import_module("sentence_transformers").SentenceTransformer
+except ModuleNotFoundError as exc:
+    raise ModuleNotFoundError(
+        "No se encontró 'sentence-transformers'. Instalalo con: pip install sentence-transformers"
+    ) from exc
 
 load_dotenv()
 
