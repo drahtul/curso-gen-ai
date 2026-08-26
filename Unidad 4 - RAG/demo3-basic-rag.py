@@ -41,6 +41,7 @@ def ask_llm_movie_recommendation(user_query, retrieved_docs):
         ]
     )
 
+    # print(context)
     response = client.responses.create(
         model="gpt-4.1-nano",
         input=[
@@ -55,13 +56,11 @@ def ask_llm_movie_recommendation(user_query, retrieved_docs):
             {
                 "role": "user",
                 "content": f"""
-User query: {user_query}
-
-Context (movies retrieved from vector database):
-{context}
-
-Return a ranked list of 3 recommendations with explanation.
-"""
+                    User query: {user_query}
+                    Context (movies retrieved from vector database):
+                    {context}
+                    Return a ranked list of 3 recommendations with explanation.
+                """
             }
         ]
     )
@@ -71,7 +70,7 @@ Return a ranked list of 3 recommendations with explanation.
 query = "I want comedy movies recommendations"
 
 docs = semantic_search(
-    query=query
+    query=query  
 )
 
 answer = ask_llm_movie_recommendation(query, docs)

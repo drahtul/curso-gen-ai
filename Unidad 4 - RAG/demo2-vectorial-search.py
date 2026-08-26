@@ -17,7 +17,7 @@ index = pc.Index(INDEX_NAME)
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
-def semantic_search(query, top_k=10):
+def semantic_search(query, top_k=1):
     query_embedding = model.encode(query).tolist()
 
     results = index.query(
@@ -25,7 +25,7 @@ def semantic_search(query, top_k=10):
         top_k=top_k,
         include_metadata=True
     )
-
+    # print(query_embedding)
     print("\n🔍 SEMANTIC SEARCH RESULTS")
     for match in results["matches"]:
         print(f"- Score: {match['score']:.4f}")
@@ -58,18 +58,21 @@ def hybrid_search(query, rating=None, year=None, top_k=5):
 
     for match in results["matches"]:
         print(f"- Score: {match['score']:.4f}")
+        print(f"  title: {match['metadata'].get('title')}")
         print(f"  Text: {match['metadata'].get('text')}")
         print(f"  Metadata: {match['metadata']}")
         print()
 
 
 
-query = "action movie"
+# query = "movie that is a science fiction thriller with a strong female protagonist"
+# escribir un query que tenga relación con la patagonia Argentina
+query = "movie set in the argentine patagonia"
 
 semantic_search(query)
 
 hybrid_search(
     query=query,
     rating=6.7,
-    year=2016
+    year=2009
 )

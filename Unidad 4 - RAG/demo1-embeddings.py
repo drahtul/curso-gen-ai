@@ -17,12 +17,12 @@ load_dotenv()
 login(token=os.getenv("HF_TOKEN"))
 
 # 1. Cargar el modelo
-# model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer('all-MiniLM-L6-v2')
 # model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-model = SentenceTransformer(
-    "paraphrase-multilingual-MiniLM-L12-v2",
-    revision="main"
-)
+# model = SentenceTransformer(
+#     "paraphrase-multilingual-MiniLM-L12-v2",
+#     revision="main"
+# )
 # 2. Textos de ejemplo
 texts = [
     "El gato está durmiendo en el sofá",
