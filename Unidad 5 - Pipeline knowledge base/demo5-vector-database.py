@@ -3,7 +3,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 import pymupdf
 from pinecone import Pinecone, ServerlessSpec
 import os
-from langchain_pinecone import PineconeVectorStore 
+from langchain_pinecone import PineconeVectorStore  # type: ignore
 from langchain_core.documents import Document
 import re
 from dotenv import load_dotenv

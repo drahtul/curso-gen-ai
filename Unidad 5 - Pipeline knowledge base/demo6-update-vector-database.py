@@ -1,5 +1,5 @@
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_pinecone import PineconeVectorStore
+from langchain_pinecone import PineconeVectorStore #type: ignore
 from pinecone import Pinecone
 from langchain_core.documents import Document
 import os
