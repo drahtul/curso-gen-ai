@@ -72,7 +72,7 @@ print("Chunking de texto completado")
 # region Configuración de Pinecone
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-index_name = "papers-index"
+index_name = "papers-index-v1"
 
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
