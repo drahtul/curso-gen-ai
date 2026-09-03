@@ -33,6 +33,7 @@ agent = create_agent(model=llm, tools=tools)
 
 
 def stream_tool_responses(user_input: str):
+    # debug con streaming de respuestas del agente
     for step in agent.stream({"messages": [HumanMessage(content=user_input)]}):
         print("\n--- Node Output ---")
         node_name = list(step.keys())[0]
@@ -58,5 +59,7 @@ stream_tool_responses(user_query)
 print("=" * 80)
 print("Test 2: Suma 35 y 20, y el resultado multiplicalo por 2")
 print("=" * 80)
+# condicionar secuencia de operaciones, primero sumar y luego multiplicar el resultado
+# pero de la manera que está instanciado el agente no puedo condicionarlo 
 user_query = "Suma 35 mas 20. Despues de haber sumado, solo al resultado de esa suma multiplicalo por 2"
 stream_tool_responses(user_query)

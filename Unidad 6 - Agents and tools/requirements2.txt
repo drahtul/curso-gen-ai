@@ -1,0 +1,9 @@
+langchain
+langchain-openai
+langchain-anthropic
+langchain-core
+langgraph
+python-dotenv
+requests
+grandalf
+matplotlib
