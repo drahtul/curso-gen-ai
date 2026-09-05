@@ -20,16 +20,15 @@ csv_path = "imdb-top-1000.csv"
 MOVIES_LIMIT = 1000
 
 def cargar_documentos_peliculas():
-    documentos = []
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in list(reader)[:MOVIES_LIMIT]:
             texto = (
-                f"Título: {row['Series_Title']}\n"
-                f"Año: {row['Released_Year']}\n"
-                f"Género: {row['Genre']}\n"
-                f"Director: {row['Director']}\n"
-                f"Duración: {row['Runtime']}\n"
+                # f"Título: {row['Series_Title']}\n"
+                # f"Año: {row['Released_Year']}\n"
+                # f"Género: {row['Genre']}\n"
+                # f"Director: {row['Director']}\n"
+                # f"Duración: {row['Runtime']}\n"
                 f"Sinopsis: {row['Overview']}"
             )
             documentos.append(
@@ -46,9 +45,11 @@ def cargar_documentos_peliculas():
                     },
                 )
             )
-    return documentos
+    # return documentos
 
-documentos = cargar_documentos_peliculas()
+documentos = []
+
+cargar_documentos_peliculas()
 
 # endregion
 
