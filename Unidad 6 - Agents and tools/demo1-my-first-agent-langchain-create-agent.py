@@ -31,6 +31,8 @@ def add(a: int, b: int) -> int:
 tools = [multiply, add]
 agent = create_agent(model=llm, tools=tools)
 
+# agent.plan("Suma 35 mas 20. Despues de haber sumado, solo al resultado de esa suma multiplicalo por 2")
+
 
 def stream_tool_responses(user_input: str):
     # debug con streaming de respuestas del agente
