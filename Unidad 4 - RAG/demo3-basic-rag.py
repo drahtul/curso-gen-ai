@@ -10,7 +10,7 @@ load_dotenv()
 login(token=os.getenv("HF_TOKEN"))
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-INDEX_NAME = "obli-rag-cine"
+INDEX_NAME = "imbd-top-1000"
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
