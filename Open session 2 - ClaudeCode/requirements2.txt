@@ -1,0 +1,16 @@
+# Versiones alineadas con Unidad 6 - Agents and tools/requirements.txt
+# (mismo stack de agente que usa el profe: LangChain + LangGraph)
+langchain
+langchain-openai
+langchain-core
+langgraph
+python-dotenv
+requests
+
+# Específicas de este proyecto: RAG (embeddings + Pinecone) y carga de datasets
+langchain-huggingface
+langchain-pinecone
+pinecone
+sentence-transformers
+torch
+pandas
