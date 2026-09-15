@@ -36,7 +36,8 @@ def retrieve_semantic_memories(query: str, k: int = 3) -> list:
 
 
 # Episodic memory en MongoDB
-mongo_client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
+# mongo_client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
+mongo_client = MongoClient(os.getenv("MONGODB_URI", "mongodb://mongo:mongo@localhost:27017/agent_long_term_memory?authSource=admin"))
 episodic_collection = mongo_client["agent_long_term_memory"]["episodic_events"]
 
 
@@ -50,7 +51,7 @@ def retrieve_episodic_memories(limit: int = 5) -> list:
 def get_postgres_connection():
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "localhost"),
-        port=os.getenv("POSTGRES_PORT", "5433"),
+        port=os.getenv("POSTGRES_PORT", "5432"),
         dbname=os.getenv("POSTGRES_DB", "agent_memory"),
         user=os.getenv("POSTGRES_USER", "postgres"),
         password=os.getenv("POSTGRES_PASSWORD", "postgres"),

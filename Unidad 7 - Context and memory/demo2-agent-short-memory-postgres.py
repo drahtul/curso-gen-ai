@@ -16,7 +16,7 @@ load_dotenv()
 openai_key = os.getenv("OPENAI_API_KEY")
 
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5433")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "agent_memory")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     print("Type 'exit' to quit\n")
 
     thread_id = "conversation-5"
-
+    # print(POSTGRES_URI)
     with PostgresSaver.from_conn_string(POSTGRES_URI) as checkpointer:
         checkpointer.setup()
         graph = graph_builder.compile(checkpointer=checkpointer)

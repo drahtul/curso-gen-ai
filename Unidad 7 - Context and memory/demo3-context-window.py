@@ -2,7 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import START, END, StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+# from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.memory import InMemorySaver
 from typing import Annotated
 from langgraph.graph.message import add_messages
@@ -15,83 +15,87 @@ load_dotenv()
 
 openai_key = os.getenv("OPENAI_API_KEY")
 
-@tool
-def count_r_in_word(word: str) -> int:
-    """Count how many 'r' letters are in the given word."""
-    return word.lower().count('r')
+# @tool
+# def count_r_in_word(word: str) -> int:
+#     """Count how many 'r' letters are in the given word."""
+#     return word.lower().count('r')
 
-@tool
-def weather_tool(city: str) -> str:
-    """
-    Retrieve current weather for a city using Open-Meteo.
-    """
-    geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}"
-    geo_resp = requests.get(geo_url).json()
+# @tool
+# def weather_tool(city: str) -> str:
+#     """
+#     Retrieve current weather for a city using Open-Meteo.
+#     """
+#     geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}"
+#     geo_resp = requests.get(geo_url).json()
 
-    if "results" not in geo_resp or len(geo_resp["results"]) == 0:
-        return f"Could not find coordinates for {city}"
+#     if "results" not in geo_resp or len(geo_resp["results"]) == 0:
+#         return f"Could not find coordinates for {city}"
 
-    lat = geo_resp["results"][0]["latitude"]
-    lon = geo_resp["results"][0]["longitude"]
+#     lat = geo_resp["results"][0]["latitude"]
+#     lon = geo_resp["results"][0]["longitude"]
 
-    weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
-    weather_resp = requests.get(weather_url).json()
+#     weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+#     weather_resp = requests.get(weather_url).json()
 
-    if "current_weather" not in weather_resp:
-        return f"Weather data unavailable for {city}"
+#     if "current_weather" not in weather_resp:
+#         return f"Weather data unavailable for {city}"
 
-    weather = weather_resp["current_weather"]
-    temp = weather["temperature"]
-    wind = weather["windspeed"]
-    condition = weather.get("weathercode", "unknown")
+#     weather = weather_resp["current_weather"]
+#     temp = weather["temperature"]
+#     wind = weather["windspeed"]
+#     condition = weather.get("weathercode", "unknown")
 
-    return f"Current weather in {city}: {temp}°C, wind {wind} km/h, condition code {condition}"
+#     return f"Current weather in {city}: {temp}°C, wind {wind} km/h, condition code {condition}"
 
-@tool
-def convert_temperature(celsius: float, to_fahrenheit: bool = True) -> float:
-    """
-    Convert temperature between Celsius and Fahrenheit.
-    If to_fahrenheit=True, converts Celsius to Fahrenheit.
-    If to_fahrenheit=False, converts Fahrenheit to Celsius.
-    Returns the converted temperature.
-    """
-    if to_fahrenheit:
-        fahrenheit = (celsius * 9/5) + 32
-        return round(fahrenheit, 2)
-    else:
-        celsius_result = (celsius - 32) * 5/9
-        return round(celsius_result, 2)
+# @tool
+# def convert_temperature(celsius: float, to_fahrenheit: bool = True) -> float:
+#     """
+#     Convert temperature between Celsius and Fahrenheit.
+#     If to_fahrenheit=True, converts Celsius to Fahrenheit.
+#     If to_fahrenheit=False, converts Fahrenheit to Celsius.
+#     Returns the converted temperature.
+#     """
+#     if to_fahrenheit:
+#         fahrenheit = (celsius * 9/5) + 32
+#         return round(fahrenheit, 2)
+#     else:
+#         celsius_result = (celsius - 32) * 5/9
+#         return round(celsius_result, 2)
 
-@tool
-def analyze_text(text: str) -> dict:
-    """
-    Analyze text and return statistics: word count, character count,
-    character count without spaces, and average word length.
-    """
-    words = text.split()
-    word_count = len(words)
-    char_count = len(text)
-    char_count_no_spaces = len(text.replace(" ", ""))
-    avg_word_length = char_count_no_spaces / word_count if word_count > 0 else 0
+# @tool
+# def analyze_text(text: str) -> dict:
+#     """
+#     Analyze text and return statistics: word count, character count,
+#     character count without spaces, and average word length.
+#     """
+#     words = text.split()
+#     word_count = len(words)
+#     char_count = len(text)
+#     char_count_no_spaces = len(text.replace(" ", ""))
+#     avg_word_length = char_count_no_spaces / word_count if word_count > 0 else 0
 
-    return {
-        "word_count": word_count,
-        "character_count": char_count,
-        "character_count_no_spaces": char_count_no_spaces,
-        "average_word_length": round(avg_word_length, 2)
-    }
-
+#     return {
+#         "word_count": word_count,
+#         "character_count": char_count,
+#         "character_count_no_spaces": char_count_no_spaces,
+#         "average_word_length": round(avg_word_length, 2)
+#     }
 
 class AgentState(TypedDict):
     """State containing messages and conversation summary."""
     messages: Annotated[list, add_messages]
     summary: str
 
-llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-5.6-luna")
+# llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-5.6-luna")
+llm = ChatOpenAI(
+    openai_api_key=openai_key,
+    model="gpt-5.6-luna",
+    reasoning_effort="none"
+)
 summarizer_llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-4.1-nano")
 
-tools = [count_r_in_word, weather_tool, convert_temperature, analyze_text]
-llm_with_tools = llm.bind_tools(tools)
+# tools = [count_r_in_word, weather_tool, convert_temperature, analyze_text]
+# llm_with_tools = llm.bind_tools(tools)
 
 def agent_node(state: AgentState):
     """Call the LLM with recent messages and summary context."""
@@ -107,7 +111,8 @@ def agent_node(state: AgentState):
     recent_messages = messages[-5:] if len(messages) > 5 else messages
     context_messages.extend(recent_messages)
 
-    response = llm_with_tools.invoke(context_messages)
+    # response = llm_with_tools.invoke(context_messages)
+    response = llm.invoke(context_messages)
     return {"messages": [response]}
 
 def summarizer_node(state: AgentState):
@@ -140,17 +145,24 @@ def summarizer_node(state: AgentState):
     else:
         return {"summary": current_summary}
 
-tool_node = ToolNode(tools=tools)
+# tool_node = ToolNode(tools=tools)
 
 graph_builder = StateGraph(AgentState)
 
+# graph_builder.add_node("agent", agent_node)
+# graph_builder.add_node("tools", tool_node)
+# graph_builder.add_node("summarizer", summarizer_node)
+
+# graph_builder.add_edge(START, "agent")
+# graph_builder.add_conditional_edges("agent", tools_condition, {"tools": "tools", END: "summarizer"})
+# graph_builder.add_edge("tools", "agent")
+# graph_builder.add_edge("summarizer", END)
+
 graph_builder.add_node("agent", agent_node)
-graph_builder.add_node("tools", tool_node)
 graph_builder.add_node("summarizer", summarizer_node)
 
 graph_builder.add_edge(START, "agent")
-graph_builder.add_conditional_edges("agent", tools_condition, {"tools": "tools", END: "summarizer"})
-graph_builder.add_edge("tools", "agent")
+graph_builder.add_edge("agent", "summarizer")
 graph_builder.add_edge("summarizer", END)
 
 checkpointer = InMemorySaver()
@@ -202,11 +214,11 @@ if __name__ == "__main__":
     print("- Automatic summarization when conversation grows (replaces SummaryMemory)")
     print("- Summarizer node maintains summary in state")
     print("- State persisted via checkpointer (no manual state handling)")
-    print("\nAvailable tools:")
-    print("- Count 'r' letters in a word")
-    print("- Get weather for a city")
-    print("- Convert temperature (Celsius/Fahrenheit)")
-    print("- Analyze text statistics")
+    # print("\nAvailable tools:")
+    # print("- Count 'r' letters in a word")
+    # print("- Get weather for a city")
+    # print("- Convert temperature (Celsius/Fahrenheit)")
+    # print("- Analyze text statistics")
     print("\nType 'exit' to quit\n")
 
     thread_id = "conversation-1"
