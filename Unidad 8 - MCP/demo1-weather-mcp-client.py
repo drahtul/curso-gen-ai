@@ -12,6 +12,7 @@ async def main():
 
         forecast = await client.call_tool("get_forecast", {"latitude": 40.7128, "longitude": -74.0060})
         print("\nForecast Result:")
-        print(forecast.data.result)
-
+        # print(forecast.data.result)
+        print(forecast.content[0].text)
+        
 asyncio.run(main())

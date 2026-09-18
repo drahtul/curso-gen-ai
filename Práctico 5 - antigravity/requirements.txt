@@ -1,0 +1,18 @@
+# Dependencias para el Servidor MCP y Agente LangGraph (TechStore)
+
+# MCP y FastMCP
+mcp<2
+fastmcp
+
+# LangChain y LangGraph
+langchain
+langchain-core
+langchain-openai
+langgraph
+langchain-mcp-adapters
+
+# Utilidades y soporte de entorno
+python-dotenv
+httpx
+typing-extensions
+pydantic
