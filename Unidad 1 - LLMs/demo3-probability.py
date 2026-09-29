@@ -19,13 +19,19 @@ response = client.responses.create(
     instructions=instrucciones,
     input=prompt,
     max_output_tokens=16,
-    top_logprobs=10, #10 palabras más probables
+    # Son los 10 tokens candidatos mas probables, no necesariamente 10
+    # palabras completas: la tokenizacion puede dividir una palabra.
+    top_logprobs=10,
     include=["message.output_text.logprobs"]
 )
 
+# Una logprobabilidad suele estar expresada como logaritmo natural de la
+# probabilidad. Aplicar exp() recupera una probabilidad entre 0 y 1.
 primer_token = response.output[0].content[0].logprobs[0]
 
 print(f"{prompt} ...")
 for alternativa in primer_token.top_logprobs:
     probabilidad = math.exp(alternativa.logprob)
+    # Solo mostramos candidatos principales; por eso sus probabilidades
+    # visibles pueden no sumar exactamente 1: falta el resto de la cola.
     print(f"  {alternativa.token!r:<12} {probabilidad:7.2%}")

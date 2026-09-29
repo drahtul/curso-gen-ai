@@ -32,6 +32,8 @@ def search_kb(topic: str) -> str:
     return "\n".join(hits) if hits else f"No entry for '{topic}'."
 
 
+# El supervisor y los trabajadores son agentes distintos: el primero enruta,
+# researcher busca hechos y writer redacta. La base de conocimiento es local.
 researcher_agent = create_agent(
     model=llm,
     tools=[search_kb],
@@ -52,6 +54,8 @@ writer_agent = create_agent(
 
 
 class Route(BaseModel):
+    # El contrato estructurado limita las decisiones del coordinador a dos
+    # trabajadores o FINISH.
     next: Literal["researcher", "writer", "FINISH"] = Field(
         description="Who should act next, or FINISH when the answer is complete."
     )
@@ -69,6 +73,8 @@ supervisor_llm = llm.with_structured_output(Route)
 
 
 def supervisor(state: MessagesState) -> Command:
+    # El supervisor central conserva el control: los trabajadores no se llaman
+    # entre si, siempre regresan a este nodo para decidir el siguiente paso.
     decision = supervisor_llm.invoke([("system", SUPERVISOR_PROMPT)] + state["messages"])
     print(f"  [supervisor] next={decision.next} ({decision.reason})")
 
@@ -78,6 +84,8 @@ def supervisor(state: MessagesState) -> Command:
 
 
 def researcher(state: MessagesState) -> Command:
+    # El agente trabajador usa su propia herramienta y devuelve sus hechos al
+    # estado global como un mensaje identificado por nombre.
     result = researcher_agent.invoke({"messages": state["messages"]})
     content = result["messages"][-1].content
     print(f"  [researcher] {content[:120]}...")
@@ -88,6 +96,8 @@ def researcher(state: MessagesState) -> Command:
 
 
 def writer(state: MessagesState) -> Command:
+    # writer consume los hechos acumulados en MessagesState; no consulta la
+    # base directamente en este diseño.
     result = writer_agent.invoke({"messages": state["messages"]})
     content = result["messages"][-1].content
     print(f"  [writer] {content[:120]}...")
@@ -110,6 +120,7 @@ def run(user_input: str):
     print("\n--- trace ---")
     result = graph.invoke(
         {"messages": [HumanMessage(content=user_input)]},
+        # recursion_limit limita ciclos supervisor -> trabajador -> supervisor.
         {"recursion_limit": 15},
     )
     print(f"\nFinal answer:\n{result['messages'][-1].content}\n")

@@ -28,10 +28,14 @@ def add(a: int, b: int) -> int:
 
 
 class AgentState(TypedDict):
+    # El estado representa el contexto mutable del grafo. add_messages agrega
+    # nuevos mensajes al historial en lugar de reemplazar los anteriores.
     messages: Annotated[list, add_messages]
 
 
 tools = [multiply, add]
+# bind_tools habilita al modelo para emitir tool_calls; todavia no ejecuta las
+# funciones, tarea que realizara ToolNode cuando el grafo lo indique.
 llm_with_tools = llm.bind_tools(tools)
 
 def agent_node(state: AgentState):
@@ -41,6 +45,8 @@ def agent_node(state: AgentState):
     return {"messages": [response]}
 
 tool_node = ToolNode(tools=tools)
+# ToolNode interpreta las llamadas estructuradas del modelo y ejecuta Python
+# con los argumentos que el modelo produjo.
 
 graph_builder = StateGraph(AgentState)
 
@@ -48,7 +54,11 @@ graph_builder.add_node("agent", agent_node)
 graph_builder.add_node("tools", tool_node)
 
 graph_builder.add_edge(START, "agent")
+# tools_condition enruta segun haya tool_calls: si existen va a tools, y si no
+# hay una solicitud pendiente el flujo puede terminar.
 graph_builder.add_conditional_edges("agent", tools_condition)
+# El resultado de la herramienta vuelve al modelo para que pueda continuar o
+# redactar la respuesta final: agent -> tools -> agent.
 graph_builder.add_edge("tools", "agent")
 graph_builder.add_edge("agent", END)
 
@@ -57,6 +67,8 @@ graph = graph_builder.compile()
 print("=" * 80)
 print("GRAPH STRUCTURE")
 print("=" * 80)
+# La representacion ASCII permite inspeccionar la topologia; no ejecuta el
+# grafo ni sustituye el recorrido real de los nodos.
 print(graph.get_graph().draw_ascii())
 print()
 

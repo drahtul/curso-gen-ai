@@ -20,6 +20,8 @@ index = pc.Index(INDEX_NAME)
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def semantic_search(query, top_k=5):
+    # Retrieval: se recuperan documentos semanticamente cercanos a la consulta
+    # para aportar al modelo informacion relacionada con la pregunta.
     query_embedding = model.encode(query).tolist()
 
     results = index.query(
@@ -31,6 +33,8 @@ def semantic_search(query, top_k=5):
     return results["matches"]
 
 def ask_llm_movie_recommendation(user_query, retrieved_docs):
+    # Augmentation: los resultados recuperados se convierten en un contexto
+    # legible que luego se incorpora al prompt enviado al LLM.
     context = "\n\n".join(
         [
             f"Title: {doc['metadata'].get('title')}\n"
@@ -41,6 +45,8 @@ def ask_llm_movie_recommendation(user_query, retrieved_docs):
         ]
     )
 
+    # El LLM no consulta Pinecone directamente: solo recibe el contexto que
+    # este programa construyo a partir de los documentos recuperados.
     # print(context)
     response = client.responses.create(
         model="gpt-4.1-nano",
@@ -73,6 +79,8 @@ docs = semantic_search(
     query=query  
 )
 
+# Generation: el modelo redacta la respuesta usando los cinco documentos
+# recuperados, aunque el prompt solicita seleccionar tres recomendaciones.
 answer = ask_llm_movie_recommendation(query, docs)
 
 print("\n🎬 MOVIE RECOMMENDATIONS\n")

@@ -17,7 +17,11 @@ load_dotenv()
 login(token=os.getenv("HF_TOKEN"))
 
 # 1. Cargar el modelo
+# Un modelo de embeddings transforma cada texto en un vector numerico que
+# representa relaciones semanticas aprendidas durante su entrenamiento.
 model = SentenceTransformer('all-MiniLM-L6-v2')
+# Las alternativas comentadas son utiles para textos en espanol o multilingues;
+# all-MiniLM-L6-v2 se usa aqui como modelo principal de la demostracion.
 # model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 # model = SentenceTransformer(
 #     "paraphrase-multilingual-MiniLM-L12-v2",
@@ -32,6 +36,8 @@ texts = [
 ]
 
 # 3. Generar embeddings
+# Este modelo genera vectores de 384 dimensiones. Todos los documentos y
+# consultas de un mismo indice deben usar el mismo modelo y dimension.
 embeddings = model.encode(texts)
 
 # 4. Mostrar embeddings (opcional)
@@ -40,10 +46,14 @@ print("\nEjemplo de embedding (primeros 5 valores):")
 print(embeddings[3][:5])
 
 # 5. Calcular similitud entre todos
+# La similitud coseno compara la orientacion de los vectores, no su distancia
+# euclidea. Valores cercanos a 1 indican contenido semanticamente parecido.
 similarity_matrix = cosine_similarity(embeddings)
 
 print("\n📊 Matriz de similitud:")
 print(np.round(similarity_matrix, 2))
+# La diagonal suele ser 1.0 porque cada texto se compara consigo mismo. La
+# expectativa didactica es que las dos frases sobre gatos sean mas cercanas.
 
 # 6. Buscar similitud entre frases específicas
 print("\n🔍 Similitud entre texto 1 y 4:")

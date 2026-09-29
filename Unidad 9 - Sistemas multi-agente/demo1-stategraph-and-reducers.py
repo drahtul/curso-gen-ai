@@ -6,13 +6,18 @@ from _graph_utils import print_graph
 
 
 class AgentState(TypedDict):
+    # El estado compartido es el contrato entre nodos. Cada reducer define
+    # como combinar la actualizacion de un nodo con el valor existente.
     topic: str
+    # topic se sobrescribe; steps se concatena y cost se suma mediante add.
     steps: Annotated[list, operator.add]
     cost: Annotated[int, operator.add]
 
 
 def classify(state: AgentState) -> dict:
     """First node: decides the topic and records a step."""
+    # Este routing es determinista: representa una etapa especializada del
+    # workflow, no una decision autonoma generada por un LLM.
     topic = "technical" if "error" in state["topic"].lower() else "general"
     return {"topic": topic, "steps": ["classify"], "cost": 1}
 
@@ -31,6 +36,8 @@ def summarize(state: AgentState) -> dict:
 
 def route(state: AgentState) -> str:
     """A conditional edge is just a function returning the name of the next node."""
+    # La arista condicional separa la decision de routing de la ejecucion del
+    # nodo especialista.
     return "technical_node" if state["topic"] == "technical" else "general_node"
 
 
@@ -60,6 +67,8 @@ if __name__ == "__main__":
         print("\n" + "-" * 80)
         print(f"Input: {user_input}")
 
+        # stream permite observar actualizaciones intermedias; invoke, usado
+        # despues, devuelve el estado final del mismo tipo de ejecucion.
         for step in graph.stream({"topic": user_input, "steps": [], "cost": 0}):
             print(f"  update -> {step}")
 

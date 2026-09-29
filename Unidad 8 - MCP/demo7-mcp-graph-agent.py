@@ -33,11 +33,15 @@ class GithubMCPAgent:
         self.graph = None
         self.session = None
         self.tools = []
+        # Este checkpointer guarda checkpoints de LangGraph en memoria del
+        # proceso; no es persistencia durable ni una funcion de MCP.
         self.checkpointer = InMemorySaver()
         self._exit_stack = AsyncExitStack()
 
     async def initialize(self):
         """Initialize MCP session and load available tools."""
+        # La sesion MCP y la memoria conversacional son capas distintas:
+        # una accede a herramientas remotas y la otra conserva mensajes.
         read, write, _ = await self._exit_stack.enter_async_context(
             streamablehttp_client(
                 MCP_SERVER_URL,
@@ -59,6 +63,8 @@ class GithubMCPAgent:
 
     def build_graph(self):
         """Build the LangGraph agent."""
+        # bind_tools comparte con el LLM los contratos de las herramientas;
+        # ToolNode ejecuta sus llamadas a traves de la sesion MCP.
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
         def agent_node(state: AgentState):
@@ -79,11 +85,14 @@ class GithubMCPAgent:
         graph_builder.add_edge("tools", "agent")
         graph_builder.add_edge("agent", END)
 
+        # El checkpointer se asocia al grafo al compilarlo, no al protocolo MCP.
         self.graph = graph_builder.compile(checkpointer=self.checkpointer)
         print("\nAgent graph built successfully!")
 
     async def stream_tool_responses(self, user_input: str, thread_id: str = "default"):
         """Stream responses from the agent."""
+        # thread_id identifica el hilo cuyo historial debe recuperar LangGraph;
+        # cada nueva invocacion agrega el mensaje a ese checkpoint en memoria.
         config = {"configurable": {"thread_id": thread_id}}
         async for step in self.graph.astream(
             {"messages": [HumanMessage(content=user_input)]}, config

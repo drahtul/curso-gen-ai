@@ -8,7 +8,9 @@ with open("golden_set.json", encoding="utf-8") as f:
 MAX_REASONABLE_STEPS = 4
 
 
-# --- rules on the answer ---------------------------------------------------
+# Las reglas de respuesta evalúan el resultado visible: palabras, restricciones
+# de longitud y rechazo. Son deterministas, baratas y reproducibles, aunque no
+# garantizan que el texto sea útil o factual.
 
 def rule_required_keywords(case, result):
     """normalize_numbers() means a '1830' assertion still matches '1,830.90'.
@@ -37,7 +39,9 @@ def rule_refusal(case, result):
     return result["text"].strip().upper().startswith("NO_DATA"), "did not refuse"
 
 
-# --- rules on the trace ----------------------------------------------------
+# Las reglas de traza evalúan el proceso: herramientas usadas y cantidad de
+# pasos. Separar resultado y proceso permite detectar respuestas correctas que
+# llegaron mediante un camino costoso o sin grounding.
 
 def rule_expected_tools(case, result):
     """Every tool the case needs must actually appear in the trace."""
@@ -78,6 +82,8 @@ RULES = ANSWER_RULES + TRACE_RULES
 
 
 def run_suite(variant: str):
+    # El golden set combina casos normales, bordes, fuera de alcance y
+    # adversariales; debe versionarse junto con el comportamiento esperado.
     print(f"\nRunning {len(GOLDEN_SET)} cases against variant {variant}\n")
     rows = []
     failures = []
@@ -90,6 +96,9 @@ def run_suite(variant: str):
         total_steps += result["steps"]
         no_tool_calls += not result["tools_used"]
 
+        # must_include valida señales observables, no necesariamente una
+        # respuesta completa; las búsquedas textuales pueden producir falsos
+        # positivos o negativos.
         marks = []
         case_ok = True
         for name, rule in RULES:
@@ -117,6 +126,9 @@ def run_suite(variant: str):
 
 def show_tool_usage(variant: str):
     """How often each tool gets picked. A tool nobody calls is dead weight."""
+    # La frecuencia ayuda a detectar herramientas innecesarias o casos que no
+    # están cubiertos por el golden set, pero no demuestra que fueron elegidas
+    # correctamente.
     print(f"\n--- tool usage, variant {variant} ---\n")
     counts = {name: 0 for name in TOOL_NAMES}
     for case in GOLDEN_SET:

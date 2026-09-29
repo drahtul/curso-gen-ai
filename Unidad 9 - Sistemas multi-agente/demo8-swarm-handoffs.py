@@ -34,11 +34,15 @@ def search_kb(topic: str) -> str:
 
 
 class SwarmState(MessagesState):
+    # active_agent es memoria de control: indica quien debe recibir el turno,
+    # mientras messages conserva el contenido conversacional.
     active_agent: str
 
 
 def create_handoff_tool(agent_name: str, description: str):
     """Build a tool whose only effect is to transfer control to another agent."""
+    # En un swarm el handoff es la herramienta de comunicacion: transfiere el
+    # control directamente entre agentes sin supervisor central.
     tool_name = f"transfer_to_{agent_name}"
 
     @tool(tool_name, description=description)
@@ -46,6 +50,8 @@ def create_handoff_tool(agent_name: str, description: str):
         state: Annotated[dict, InjectedState],
         tool_call_id: Annotated[str, InjectedToolCallId],
     ) -> Command:
+        # Estos valores son inyectados por LangChain: el agente no tiene que
+        # generarlos manualmente para identificar estado y llamada de tool.
         tool_message = {
             "role": "tool",
             "content": f"Control transferred to {agent_name}.",
@@ -55,6 +61,8 @@ def create_handoff_tool(agent_name: str, description: str):
         print(f"  [handoff] -> {agent_name}")
         
         return Command(
+            # PARENT cruza desde el agente hijo al grafo padre y actualiza el
+            # agente activo para el siguiente turno.
             goto=agent_name,
             graph=Command.PARENT,
             update={"messages": state["messages"] + [tool_message], "active_agent": agent_name},
@@ -88,6 +96,8 @@ writer_agent = create_agent(
 
 
 def entry(state: SwarmState) -> Command:
+    # El primer turno usa researcher; los siguientes retoman el agente guardado
+    # en active_agent gracias al checkpoint asociado al thread_id.
     target = state.get("active_agent") or "researcher"
     print(f"  [entry] active agent = {target}")
     return Command(goto=target, update={"active_agent": target})
@@ -102,12 +112,15 @@ builder.add_edge("researcher", END)
 builder.add_edge("writer", END)
 
 graph = builder.compile(checkpointer=InMemorySaver())
+# InMemorySaver conserva estado solo durante este proceso; no es persistencia
+# durable aunque permita mantener el control entre turnos del mismo hilo.
 
 
 def run(user_input: str, thread_id: str = "swarm"):
     print("\n--- trace ---")
     result = graph.invoke(
         {"messages": [HumanMessage(content=user_input)]},
+        # recursion_limit limita posibles ciclos researcher <-> writer.
         {"configurable": {"thread_id": thread_id}, "recursion_limit": 15},
     )
     print(f"\nActive agent after the turn: {result['active_agent']}")

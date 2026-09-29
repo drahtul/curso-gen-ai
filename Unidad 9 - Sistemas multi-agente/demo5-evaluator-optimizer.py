@@ -24,12 +24,16 @@ CRITERIA = (
 
 class Evaluation(BaseModel):
     """The evaluator's verdict."""
+    # La salida estructurada convierte la evaluacion del LLM en un contrato
+    # predecible para el grafo: veredicto booleano y feedback accionable.
 
     passed: bool = Field(description="True only if every criterion is satisfied.")
     feedback: str = Field(description="Concrete, actionable feedback for the writer.")
 
 
 class AgentState(TypedDict):
+    # draft y feedback forman el intercambio entre generador y evaluador;
+    # history e iterations permiten observar y limitar el ciclo.
     complaint: str
     draft: str
     feedback: str
@@ -39,6 +43,8 @@ class AgentState(TypedDict):
 
 
 def generate(state: AgentState) -> dict:
+    # El generador produce una version nueva; si existe feedback, lo usa como
+    # criterio de refinamiento en lugar de empezar sin contexto.
     if state.get("feedback"):
         user = (
             f"Customer complaint: {state['complaint']}\n"
@@ -56,6 +62,8 @@ def generate(state: AgentState) -> dict:
 
 
 def evaluate(state: AgentState) -> dict:
+    # El evaluador es otro rol generativo independiente: juzga el borrador,
+    # pero su veredicto tampoco equivale a una garantia factual.
     verdict = llm.with_structured_output(Evaluation).invoke(
         [
             ("system", f"You are a strict editor. Criteria: {CRITERIA}"),
@@ -68,6 +76,8 @@ def evaluate(state: AgentState) -> dict:
 
 def should_continue(state: AgentState) -> Literal["generate", "__end__"]:
     """Loop back only if we failed AND we still have budget."""
+    # El limite evita un ciclo infinito de autocritica. La respuesta puede
+    # terminar sin aprobarse cuando se agota el presupuesto de iteraciones.
     if state["passed"] or state["iterations"] >= MAX_ITERATIONS:
         return "__end__"
     return "generate"
@@ -86,6 +96,8 @@ graph = builder.compile()
 def run(complaint: str):
     print("\n--- trace ---")
     result = graph.invoke(
+        # iterations usa un reducer sumatorio y cada generate agrega una
+        # version a history, lo que permite auditar el refinamiento.
         {"complaint": complaint, "draft": "", "feedback": "", "passed": False, "iterations": 0, "history": []}
     )
     print(f"\nIterations: {result['iterations']} | passed: {result['passed']}")

@@ -9,6 +9,8 @@ checkpointer = InMemorySaver()   # short-term: one conversation per thread_id
 
 def merge_dicts(current: dict, update: dict) -> dict:
     """Reducer: merge the approvals collected by each parallel branch."""
+    # Cada rama escribe una clave distinta; por eso combinar diccionarios evita
+    # que una aprobacion sobrescriba la decision de la otra.
     return {**current, **update}
 
 
@@ -20,6 +22,8 @@ class AgentState(TypedDict):
 
 def manager_review(state: AgentState) -> dict:
     """Runs in parallel with finance_review; pauses waiting for the manager's call."""
+    # Esta rama representa un agente/revisor especializado que puede pausar de
+    # manera independiente del revisor financiero.
     decision = interrupt(
         {"question": f"[Manager] Approve expense '{state['request']}'? (approve/reject)"}
     )
@@ -28,6 +32,8 @@ def manager_review(state: AgentState) -> dict:
 
 def finance_review(state: AgentState) -> dict:
     """Runs in parallel with manager_review; pauses waiting for finance's call."""
+    # El orden en que se resuelven las ramas no debe asumirse; finalize espera
+    # el fan-in de ambas antes de decidir.
     decision = interrupt(
         {"question": f"[Finance] Approve expense '{state['request']}'? (approve/reject)"}
     )
@@ -49,10 +55,10 @@ builder.add_node("manager_review", manager_review)
 builder.add_node("finance_review", finance_review)
 builder.add_node("finalize", finalize)
 
-# Fan-out: both reviews start at the same time...
+# Fan-out: ambas revisiones comienzan como ramas independientes.
 builder.add_edge(START, "manager_review")
 builder.add_edge(START, "finance_review")
-# ...and fan-in: "finalize" waits until BOTH branches have produced a result.
+# Fan-in: finalize espera hasta que las DOS ramas produjeron un resultado.
 builder.add_edge("manager_review", "finalize")
 builder.add_edge("finance_review", "finalize")
 builder.add_edge("finalize", END)
@@ -62,6 +68,8 @@ graph = builder.compile(checkpointer=checkpointer)
 
 def ask(request: str, thread_id: str):
     """Run one turn, resolving as many *simultaneous* interrupts as the graph raises."""
+    # thread_id identifica la ejecucion; cada interrupt tiene ademas su propio
+    # id para distinguir las pausas de manager y finance.
     config = {"configurable": {"thread_id": thread_id}}
     result = graph.invoke({"request": request, "approvals": {}}, config)
 
@@ -69,14 +77,15 @@ def ask(request: str, thread_id: str):
         pending = result["__interrupt__"]
         print(f"\n--- HUMAN IN THE LOOP: {len(pending)} pending approval(s) ---")
 
-        # Each pending interrupt has its own id: collect one decision per id.
+        # Cada interrupt pendiente tiene su propio id: se recoge una decision
+        # independiente para cada rama paralela.
         resume_map = {}
         for pending_interrupt in pending:
             question = pending_interrupt.value["question"]
             decision = input(f"{question}: ").strip()
             resume_map[pending_interrupt.id] = decision
 
-        # A single resume can answer several interrupts at once via {id: value}.
+        # Una sola reanudacion puede responder varios interrupts con {id: valor}.
         result = graph.invoke(Command(resume=resume_map), config)
 
     print(f"\nOutcome: {result['outcome']}\n")

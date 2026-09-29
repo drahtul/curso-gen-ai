@@ -87,6 +87,8 @@ def analyze_text(text: str) -> dict:
 
 
 class AgentState(TypedDict):
+    # add_messages acumula los mensajes nuevos en el estado. Si se usara una
+    # asignacion normal, cada paso podria reemplazar el historial anterior.
     messages: Annotated[list, add_messages]
 
 llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-4.1-nano")
@@ -96,6 +98,8 @@ llm_with_tools = llm.bind_tools(tools)
 
 def agent_node(state: AgentState):
     """Call the LLM with the current messages."""
+    # El modelo recibe todo el historial disponible para interpretar
+    # referencias como "esa temperatura" y decidir si necesita una tool.
     messages = state["messages"]
     response = llm_with_tools.invoke(messages)
     return {"messages": [response]}
@@ -108,16 +112,23 @@ graph_builder.add_node("agent", agent_node)
 graph_builder.add_node("tools", tool_node)
 
 graph_builder.add_edge(START, "agent")
+# El agente puede terminar respondiendo o derivar la ejecucion a una tool.
+# Despues de ejecutar la tool, el resultado vuelve al agente para redactar la
+# respuesta final con el dato obtenido.
 graph_builder.add_conditional_edges("agent", tools_condition)
 graph_builder.add_edge("tools", "agent")
 graph_builder.add_edge("agent", END)
 
+# Este checkpointer conserva el estado solo en memoria del proceso. Es memoria
+# de corto plazo: al cerrar Python se pierde, aunque dure varios turnos.
 checkpointer = InMemorySaver()
 graph = graph_builder.compile(checkpointer=checkpointer)
 
 def stream_tool_responses(user_input: str, thread_id: str):
     """Stream responses with memory persistence via checkpointer.
     Uses thread_id to maintain conversation history across invocations."""
+    # thread_id funciona como clave de la conversacion: LangGraph recupera
+    # con ella el historial correcto antes de procesar el nuevo mensaje.
     config = {"configurable": {"thread_id": thread_id}}
 
     for step in graph.stream(

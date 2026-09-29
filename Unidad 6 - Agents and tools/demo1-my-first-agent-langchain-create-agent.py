@@ -19,23 +19,30 @@ llm = ChatOpenAI(
 @tool
 def multiply(a: int, b: int) -> int:
     """Multiply two numbers."""
+    # @tool expone esta funcion al modelo con su nombre, tipos y descripcion;
+    # el calculo sigue siendo determinista y lo ejecuta Python.
     return a * b
 
 
 @tool
 def add(a: int, b: int) -> int:
     """Add two numbers."""
+    # El LLM decide cuando solicitar la herramienta, pero no reemplaza la
+    # ejecucion del codigo que produce el resultado numerico.
     return a + b
 
 
 tools = [multiply, add]
+# create_agent aporta el ciclo de tool calling: mensaje, decision del modelo,
+# ejecucion de la tool, devolucion del resultado y respuesta final.
 agent = create_agent(model=llm, tools=tools)
 
 # agent.plan("Suma 35 mas 20. Despues de haber sumado, solo al resultado de esa suma multiplicalo por 2")
 
 
 def stream_tool_responses(user_input: str):
-    # debug con streaming de respuestas del agente
+    # El streaming muestra eventos intermedios del agente; no implica
+    # necesariamente que cada evento sea un token individual.
     for step in agent.stream({"messages": [HumanMessage(content=user_input)]}):
         print("\n--- Node Output ---")
         node_name = list(step.keys())[0]
@@ -61,7 +68,8 @@ stream_tool_responses(user_query)
 print("=" * 80)
 print("Test 2: Suma 35 y 20, y el resultado multiplicalo por 2")
 print("=" * 80)
-# condicionar secuencia de operaciones, primero sumar y luego multiplicar el resultado
-# pero de la manera que está instanciado el agente no puedo condicionarlo 
+# Un agente autonomo puede elegir una secuencia razonable, pero esta creacion
+# de alto nivel no garantiza un workflow determinista suma -> multiplicacion.
+# Para imponer orden hace falta logica adicional o un grafo explicito.
 user_query = "Suma 35 mas 20. Despues de haber sumado, solo al resultado de esa suma multiplicalo por 2"
 stream_tool_responses(user_query)

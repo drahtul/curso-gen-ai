@@ -20,6 +20,8 @@ from app import EMBEDDING_MODEL, answer
 load_dotenv()
 
 with open("golden_set.json", encoding="utf-8") as f:
+# Solo se evalúan casos con herramientas porque las metricas de contexto
+# necesitan evidencia recuperada para poder comparar la respuesta.
     GOLDEN_SET = [c for c in json.load(f) if c["expected_tools"]]
 
 GRADER_MODEL = "gpt-4.1-nano"
@@ -30,6 +32,8 @@ RETRY_BASE_DELAY_S = 3.0
 
 
 def trace_to_contexts(trace: list) -> list:
+    # Ragas recibe textos como contexto. Esta conversion compacta cada llamada
+    # y su resultado, aunque no equivale necesariamente a documentos RAG puros.
     return [
         f"{step['tool']}({', '.join(f'{k}={v!r}' for k, v in step['args'].items())}) -> {step['result']}"
         for step in trace
@@ -50,6 +54,10 @@ async def with_retries(coro_fn, *args, **kwargs):
 
 async def score_case(metrics: dict, question: str, response_text: str, reference: str, contexts: list) -> dict:
     """Every metric for one case, fired concurrently instead of one round-trip each."""
+    # Faithfulness mide apoyo en el contexto, no verdad factual global.
+    # Relevancy compara respuesta y pregunta; precision/recall evalúan la
+    # utilidad del contexto respecto de la referencia. Todas usan un LLM juez
+    # y por eso pueden variar y tienen coste adicional.
     faithfulness, relevancy, precision, recall = await asyncio.gather(
         with_retries(
             metrics["faithfulness"].ascore,
@@ -81,6 +89,9 @@ async def score_all(metrics: dict, scored_inputs: list) -> list:
 
 
 def run_ragas(variant: str, metrics: dict) -> tuple:
+    # La variante A puede responder desde la memoria del modelo; B exige
+    # grounding mediante herramientas. La comparación evalua el sistema, no
+    # solo la redaccion final.
     print(f"\nRunning {len(GOLDEN_SET)} cases against variant {variant}...")
 
     runs = []
@@ -113,7 +124,9 @@ def run_ragas(variant: str, metrics: dict) -> tuple:
 
     averages = {}
     for m in METRIC_NAMES:
-        values = [r["scores"][m] for r in runs if r["scores"][m] == r["scores"][m]]  # drop nan
+        # Se excluyen nan porque no hay evidencia evaluable; el promedio no
+        # debe ocultar los peores casos, que se muestran mas abajo.
+        values = [r["scores"][m] for r in runs if r["scores"][m] == r["scores"][m]]
         skipped = len(runs) - len(values)
         averages[m] = sum(values) / len(values) if values else float("nan")
         if skipped:

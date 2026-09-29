@@ -13,6 +13,8 @@ texto = "La biblioteca del pueblo guardaba un libro que"
 print(f"Texto inicial: {texto}\n")
 
 for i in range(1, 9):  # 8 iteraciones
+    # La generacion se construye incrementalmente: cada llamada recibe todo
+    # el texto acumulado, en vez de continuar una respuesta internamente.
     response = client.responses.create(
         model="gpt-4o-mini",
         instructions=instrucciones,
@@ -26,10 +28,14 @@ for i in range(1, 9):  # 8 iteraciones
 
     tokens = []
     for lp in logprobs:
+        # La condicion depende de la tokenizacion concreta del modelo: un
+        # token que comienza con espacio suele iniciar una nueva palabra.
         if tokens and lp.token.startswith(" "):
             break
         tokens.append(lp.token)
 
+    # fragmento_nuevo agrupa tokens hasta ese corte; no equivale
+    # necesariamente a una palabra segun las reglas del lenguaje natural.
     fragmento_nuevo = "".join(tokens).strip()
 
     if not fragmento_nuevo:

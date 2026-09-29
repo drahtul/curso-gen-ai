@@ -10,6 +10,8 @@ login(token=os.getenv("HF_TOKEN"))
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 INDEX_NAME = "obli-rag-cine"
 
+# El indice debe existir previamente y ser compatible con los vectores de
+# all-MiniLM-L6-v2: dimension 384 y una metrica como cosine.
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(INDEX_NAME)
 
@@ -70,6 +72,8 @@ movies = [
 
 vectors = []
 for movie in movies:
+    # Solo se vectoriza la descripcion. Los demas campos se conservan como
+    # metadata para mostrarlos o filtrarlos despues de la busqueda semantica.
     embedding = model.encode(movie["text"]).tolist()
     vectors.append({
         "id": movie["id"],
@@ -82,7 +86,8 @@ for movie in movies:
         }
     })
 
-# insertar en batches
+# Insertar en lotes reduce el tamano de cada peticion y controla la carga de
+# la API. El ID identifica el registro y un upsert repetido puede sobrescribirlo.
 for i in range(0, len(vectors), 20):
     batch = vectors[i:i + 20]
     index.upsert(vectors=batch)

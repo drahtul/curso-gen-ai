@@ -15,6 +15,8 @@ texto = "La biblioteca del pueblo guardaba un libro que"
 print(texto)
 
 for i in range(10):
+    # Cada iteracion es una nueva llamada al modelo. Se reenvia el texto
+    # acumulado para que la proxima prediccion tenga todo el contexto previo.
     response = client.responses.create(
         model="gpt-4o-mini",
         instructions=instrucciones,
@@ -25,10 +27,14 @@ for i in range(10):
     )
 
     logprobs = response.output[0].content[0].logprobs
+    # Los logprobs permiten inspeccionar los tokens candidatos, pero el corte
+    # siguiente usa el texto del token como una heuristica de palabra.
     # print(logprobs)
 
     tokens = []
     for lp in logprobs:
+        # Un espacio suele marcar el comienzo de otra palabra, aunque los
+        # tokens no coinciden siempre con palabras completas.
         if tokens and lp.token.startswith(" "):
             break
         tokens.append(lp.token)
@@ -37,6 +43,8 @@ for i in range(10):
     if not palabra:
         break
 
+    # Reenviar texto completo en cada vuelta facilita el ejemplo, pero aumenta
+    # el consumo acumulado de tokens con cada nueva llamada.
     texto += " " + palabra
 
     print(f"[{i+1}] +{palabra!r} = {len(tokens)} token(s) {[t for t in tokens]}")

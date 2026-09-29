@@ -17,11 +17,14 @@ if not pinecone_api_key:
 INDEX_NAME = "obli-rag-cine"
 BATCH_SIZE = 20
 
+# Este script reutiliza el mismo indice que la demo anterior. Su dimension y
+# metrica deben coincidir con el modelo de embeddings usado aqui.
 pc = Pinecone(api_key=pinecone_api_key)
 index = pc.Index(INDEX_NAME)
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# 500 películas nuevas generadas a partir de combinaciones de datos descriptivos.
+# Son datos sinteticos generados por combinaciones de atributos: sirven para
+# practicar ingestion y escala, pero no para medir la calidad de un RAG real.
 genres = [
     "science fiction",
     "mystery",
@@ -76,6 +79,8 @@ conflicts = [
 
 movies = []
 for movie_number in range(1, 501):
+    # Las formulas combinan atributos de forma determinista para poder crear
+    # muchas descripciones reproducibles sin un dataset externo.
     genre = genres[(movie_number - 1) % len(genres)]
     setting = settings[((movie_number - 1) // len(genres)) % len(settings)]
     protagonist = protagonists[((movie_number - 1) // (len(genres) * len(settings))) % len(protagonists)]
@@ -97,6 +102,8 @@ for movie_number in range(1, 501):
 
 vectors = []
 for movie in movies:
+    # Se mantiene el texto en el vector para la similitud y la metadata para
+    # presentar resultados o aplicar filtros estructurados.
     embedding = model.encode(movie["text"]).tolist()
     vectors.append(
         {
@@ -112,6 +119,8 @@ for movie in movies:
     )
 
 for start in range(0, len(vectors), BATCH_SIZE):
+    # Los IDs new-movie-001...500 no pisan los movie-01...50 de la otra demo;
+    # repetir el upsert es idempotente para esos mismos IDs.
     batch = vectors[start:start + BATCH_SIZE]
     index.upsert(vectors=batch)
     end = min(start + BATCH_SIZE, len(vectors))

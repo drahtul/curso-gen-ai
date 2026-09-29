@@ -36,6 +36,8 @@ class PokemonMCPAgent:
 
     async def initialize(self):
         """Initialize MCP session and load available tools."""
+        # Streamable HTTP mantiene canales de lectura/escritura con el servidor
+        # remoto; no se ejecuta el servidor dentro de este proceso.
         read, write, _ = await self._exit_stack.enter_async_context(
             streamablehttp_client(
                 MCP_SERVER_URL,
@@ -43,8 +45,13 @@ class PokemonMCPAgent:
             )
         )
         self.session = await self._exit_stack.enter_async_context(ClientSession(read, write))
+        # initialize negocia capacidades y prepara la sesion MCP antes de
+        # descubrir o invocar herramientas.
         await self.session.initialize()
 
+        # El adaptador oficial convierte automaticamente herramientas MCP en
+        # herramientas compatibles con LangChain, a diferencia del wrapper
+        # manual construido en demo3.
         self.tools = await load_mcp_tools(self.session)
 
         print(f"Found {len(self.tools)} tools from Pokemon MCP:")
@@ -53,10 +60,13 @@ class PokemonMCPAgent:
 
     async def close(self):
         """Close the MCP session."""
+        # AsyncExitStack cierra transporte y sesion incluso si el agente falla.
         await self._exit_stack.aclose()
 
     def build_graph(self):
         """Build the LangGraph agent."""
+        # bind_tools entrega al LLM los contratos; ToolNode ejecuta las llamadas
+        # MCP cuando el grafo recibe un tool_call.
         self.llm_with_tools = self.llm.bind_tools(self.tools)
 
         def agent_node(state: AgentState):
@@ -73,6 +83,8 @@ class PokemonMCPAgent:
         graph_builder.add_node("tools", tool_node)
 
         graph_builder.add_edge(START, "agent")
+        # El resultado remoto se reinserta en el historial para que el modelo
+        # pueda continuar el ciclo agente -> herramienta -> agente.
         graph_builder.add_conditional_edges("agent", tools_condition)
         graph_builder.add_edge("tools", "agent")
         graph_builder.add_edge("agent", END)

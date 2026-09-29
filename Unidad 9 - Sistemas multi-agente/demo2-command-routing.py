@@ -13,6 +13,8 @@ class AgentState(TypedDict):
 
 
 def triage(state: AgentState) -> Command:
+    # La clasificacion actual usa reglas de palabras clave, no un LLM. Cada
+    # departamento puede representar aqui un agente especialista.
     text = state["ticket"].lower()
     if any(word in text for word in ["invoice", "payment", "refund"]):
         target = "billing"
@@ -21,6 +23,8 @@ def triage(state: AgentState) -> Command:
     else:
         target = "general"
 
+    # Command combina actualizacion del estado y control del flujo en un unico
+    # resultado, a diferencia de separar ambos pasos con una arista condicional.
     return Command(
         update={"department": target, "log": [f"triage -> {target}"]},
         goto=target,
@@ -40,7 +44,8 @@ def general(state: AgentState) -> Command:
 
 
 builder = StateGraph(AgentState)
-# Declaring the possible targets is what lets LangGraph draw the edges.
+# Declarar destinos documenta las rutas posibles y permite dibujarlas; la
+# seleccion concreta ocurre dentro de triage mediante goto.
 builder.add_node("triage", triage, destinations=("billing", "engineering", "general"))
 builder.add_node("billing", billing)
 builder.add_node("engineering", engineering)

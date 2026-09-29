@@ -10,6 +10,8 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
 
 class Estudiante(BaseModel):
+    # El modelo Pydantic funciona como contrato: define campos y tipos que la
+    # respuesta estructurada debe cumplir antes de entregarse al programa.
     nombre: str
     edad: int
     carrera: str
@@ -21,5 +23,7 @@ response = client.responses.parse(
 )
 
 estudiante = response.output_parsed  # instancia de Estudiante, ya validada
+# La validacion comprueba forma y tipos, pero no que los datos inventados por
+# el modelo sean verdaderos en el mundo real.
 print(estudiante)
 print(estudiante.nombre)

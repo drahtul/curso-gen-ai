@@ -25,17 +25,20 @@ MAX_STEPS = 8
 _vectorstore = None
 
 def get_vectorstore() -> PineconeVectorStore:
+    # La inicializacion diferida evita descargar el modelo de embeddings y
+    # abrir Pinecone cuando la ejecucion no necesita buscar en el catalogo.
     global _vectorstore
     if _vectorstore is None:
-        # Quiet the model-download progress bars: they wreck the demo output.
+        # Silenciar las barras de descarga evita mezclar infraestructura con
+        # la salida que luego se inspecciona durante las evaluaciones.
         os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
         embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
         _vectorstore = PineconeVectorStore.from_existing_index(
             embedding=embeddings,
             index_name=INDEX_NAME,
-            # This index stores the product copy under 'description', not the
-            # 'text' key LangChain assumes. Without this every document comes
-            # back empty and the tool silently returns nothing.
+            # El indice guarda el contenido bajo 'description', no bajo la
+            # clave 'text' que LangChain usa por defecto. Esta configuracion
+            # permite que el contexto recuperado llegue realmente al LLM.
             text_key="description",
         )
     return _vectorstore
@@ -85,6 +88,8 @@ def search_catalog(query: str, top_k: int = 3) -> str:
     Use this for any question about what the store sells, product features or
     specifications. Returns the matching product titles with a description snippet.
     """
+    # Esta tool aporta grounding externo: el modelo debe usar los fragmentos
+    # recuperados en vez de inventar caracteristicas del producto.
     try:
         docs = get_vectorstore().similarity_search(query, k=top_k)
     except Exception as exc:
@@ -108,6 +113,8 @@ def check_stock(product_keyword: str) -> str:
     product_keyword must be a single lowercase word, one of:
     paint, rug, earphones, drill, ladder, hammer.
     """
+    # La validacion de la tool limita el dominio y produce datos deterministas
+    # que el modelo puede citar en su respuesta.
     key = product_keyword.strip().lower()
     if key not in INVENTORY:
         return (
@@ -143,6 +150,8 @@ def quote_total(unit_price_usd: float, quantity: int) -> str:
 
     Always use this instead of doing the arithmetic yourself.
     """
+    # El calculo queda fuera del LLM: la herramienta aplica la regla de negocio
+    # con aritmetica reproducible y devuelve el detalle para evaluarlo.
     if quantity <= 0:
         return "INVALID_QUANTITY: quantity must be a positive integer."
 
@@ -186,6 +195,8 @@ PROMPTS = {
         "these rules."
     ),
 }
+# Las variantes A y B permiten evaluar el efecto de exigir tool calling y
+# grounding frente a un prompt mas permisivo, manteniendo igual el agente.
 
 
 class AgentState(TypedDict):
@@ -197,14 +208,17 @@ def build_graph():
         api_key=os.getenv("OPENAI_API_KEY"),
         model="gpt-4.1-nano",
         temperature=0.0,
-        # An eval suite is a burst of requests, and an agent multiplies it by the
-        # number of turns. Without retries a 429 kills the run halfway through.
+        # Una suite de evaluacion concentra solicitudes y un agente las
+        # multiplica por sus turnos. Los reintentos amortiguan errores 429, pero
+        # no sustituyen el control de coste ni el limite de pasos.
         max_retries=8,
         timeout=60,
     )
     llm_with_tools = llm.bind_tools(TOOLS)
 
     def agent_node(state: AgentState) -> dict:
+        # El limite se mide sobre llamadas previas al LLM y actua como guardrail
+        # contra ciclos largos durante las evaluaciones.
         if count_steps(state["messages"]) >= MAX_STEPS:
             return {"messages": [AIMessage(content="STEP_LIMIT_REACHED")]}
         return {"messages": [llm_with_tools.invoke(state["messages"])]}
@@ -214,6 +228,8 @@ def build_graph():
     builder.add_node("tools", ToolNode(tools=TOOLS))
     builder.add_edge(START, "agent")
     builder.add_conditional_edges("agent", tools_condition)
+    # El grafo alterna generacion y ejecucion de tools; esa traza es parte de
+    # lo que luego inspeccionan las evaluaciones de proceso.
     builder.add_edge("tools", "agent")
     builder.add_edge("agent", END)
     return builder.compile()
@@ -230,6 +246,8 @@ def count_steps(messages: list) -> int:
 
 def extract_trace(messages: list) -> list:
     """Every tool call the agent made, in order, with its arguments and result."""
+    # Primero se indexan ToolMessage por ID y luego se recorren los AIMessage:
+    # asi cada llamada del modelo queda emparejada con el resultado ejecutado.
     results = {}
     for message in messages:
         if isinstance(message, ToolMessage):
@@ -249,6 +267,8 @@ def extract_trace(messages: list) -> list:
 
 def extract_contexts(trace: list) -> list:
     """The catalog snippets the agent actually saw. Used by the RAG metrics."""
+    # Las metricas RAG deben recibir el contexto que el agente vio realmente,
+    # no el catalogo completo ni una suposicion sobre la recuperacion.
     contexts = []
     for step in trace:
         if step["tool"] == "search_catalog" and not step["result"].startswith(
@@ -265,8 +285,8 @@ def extract_contexts(trace: list) -> list:
 def sum_usage(messages: list) -> tuple:
     """Tokens across every LLM turn in the run, not just the last one.
 
-    This is the number that surprises people: an agent that loops five times
-    pays for the whole conversation five times over.
+    Un agente que itera varias veces acumula tokens de todos los turnos, no
+    solo de la ultima respuesta; por eso el coste puede crecer rapidamente.
     """
     input_tokens = output_tokens = 0
     for message in messages:
@@ -278,6 +298,9 @@ def sum_usage(messages: list) -> tuple:
 
 def answer(question: str, variant: str = "B") -> dict:
     """Run the agent on one question and report everything worth evaluating."""
+    # Se devuelve una observacion completa: texto final, herramientas, contexto,
+    # pasos, tokens, coste y latencia. Evaluar solo el texto ocultaria fallos
+    # del proceso o respuestas no fundamentadas.
     graph = build_graph()
     messages = [
         SystemMessage(content=PROMPTS[variant]),
@@ -310,6 +333,8 @@ def answer(question: str, variant: str = "B") -> dict:
 
 def format_trace(result: dict) -> str:
     """One-line-per-call rendering of the trace, for the demo output."""
+    # La representacion compacta facilita auditar el orden de tool calling y
+    # comparar variantes del agente durante una evaluacion.
     if not result["trace"]:
         return "    (no tools called)"
     lines = []

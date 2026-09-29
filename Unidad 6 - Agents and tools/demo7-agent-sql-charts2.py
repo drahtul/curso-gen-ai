@@ -29,6 +29,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 CHART_DIR = Path(__file__).resolve().parent / "charts"
 MAX_SQL_ROWS = 200
 MAX_CHART_POINTS = 50
+# Estos limites controlan coste y superficie de abuso: acotan filas SQL,
+# puntos graficados y, mas adelante, la cantidad de ciclos del agente.
 
 
 SCHEMA_SQL = """
@@ -113,7 +115,8 @@ def get_connection() -> sqlite3.Connection:
     )
     connection.commit()
 
-    # Impide operaciones de escritura una vez cargados los datos.
+    # Es una barrera en la base de datos, independiente de las instrucciones
+    # del modelo: impide operaciones de escritura una vez cargados los datos.
     connection.execute("PRAGMA query_only = ON")
 
     _connection = connection
@@ -128,6 +131,8 @@ def get_connection() -> sqlite3.Connection:
 
 def is_read_only_query(sql_query: str) -> bool:
     """Acepta SELECT y consultas WITH que terminen ejecutando una lectura."""
+    # Esta validacion de aplicacion permite SELECT y WITH, pero por si sola no
+    # demuestra que toda consulta WITH sea de solo lectura.
     return bool(re.match(r"^\s*(select|with)\b", sql_query, re.IGNORECASE))
 
 # Tool 1: consultar la base de datos relacional
@@ -145,6 +150,8 @@ def query_sales_database(sql_query: str) -> str:
     Devuelve como maximo 200 filas.
     """
 
+    # El modelo genera una consulta, pero la herramienta valida, limita filas
+    # y la ejecuta en SQLite. Son controles distintos del SYSTEM_PROMPT.
     cleaned = sql_query.strip()
 
     if cleaned.endswith(";"):
@@ -210,6 +217,7 @@ def generate_chart(
     if len(labels) != len(values):
         return "Error: labels y values deben tener la misma longitud."
 
+    # Limitar puntos evita graficas ilegibles y acota trabajo y tamano de salida.
     if len(labels) > MAX_CHART_POINTS:
         return f"Error: la grafica admite como maximo {MAX_CHART_POINTS} puntos."
 
@@ -219,6 +227,8 @@ def generate_chart(
     ):
         return "Error: todos los valores deben ser numeros finitos."
 
+    # Path.name elimina rutas aportadas por el modelo y fuerza una salida PNG
+    # dentro de CHART_DIR, reduciendo el riesgo de escribir fuera de la carpeta.
     safe_filename = Path(filename).name
     if not safe_filename.lower().endswith(".png"):
         safe_filename += ".png"
@@ -314,6 +324,8 @@ def generate_chart(
         return f"Error al generar la grafica: {exc}"
 
     finally:
+        # Cerrar siempre la figura evita fugas de recursos en ejecuciones
+        # repetidas del agente.
         plt.close(fig)
 
     print(f"[chart] Grafica guardada en {output_path}")
@@ -341,6 +353,9 @@ Reglas:
 7. Usa barh para etiquetas largas.
 8. Finaliza siempre con un resumen breve.
 """
+# Las instrucciones orientan al LLM, mientras que query_only, los limites y
+# las validaciones de las tools imponen restricciones que el modelo no puede
+# saltarse solo con una respuesta textual.
 
 
 llm = ChatOpenAI(
@@ -370,6 +385,8 @@ graph_builder.add_edge("tools", "agent")
 
 # No se añade una salida directa de agent a END.
 # tools_condition ya decide si continuar o terminar.
+# recursion_limit evita ciclos excesivos de llamadas agente-herramienta y
+# limita el coste de una ejecucion que no alcance una respuesta final.
 graph = graph_builder.compile()
 
 

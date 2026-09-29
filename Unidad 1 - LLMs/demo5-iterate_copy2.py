@@ -15,6 +15,8 @@ print(texto)
 print("-" * 60)
 
 for i in range(1, 9):
+    # Esta variante tambien hace una llamada por iteracion, pero usa el texto
+    # final de output_text en lugar de reconstruirlo token por token.
     response = client.responses.create(
         model="gpt-4o-mini",
         instructions=instrucciones,
@@ -24,12 +26,14 @@ for i in range(1, 9):
         include=["message.output_text.logprobs"]
     )
 
-    # Extraemos el nuevo fragmento generado
+    # Extraemos el fragmento generado. Aunque se solicitan logprobs, esta
+    # variante no los inspecciona, a diferencia de las otras copias del demo.
     fragmento_nuevo = response.output_text.strip()
 
     # Añadimos al texto acumulado
     if fragmento_nuevo:
-        # Añadimos un espacio si es necesario
+        # La separacion manual mejora la legibilidad, pero no reproduce
+        # necesariamente los limites reales de la tokenizacion.
         if not texto.endswith((" ", "\n")) and not fragmento_nuevo.startswith((" ", "\n", ".", ",", "!", "?", ";", ":")):
             texto += " "
         texto += fragmento_nuevo

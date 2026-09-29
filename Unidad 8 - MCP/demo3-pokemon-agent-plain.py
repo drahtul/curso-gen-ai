@@ -19,6 +19,8 @@ mcp_api_key = os.getenv("POKEMON_MCP_API_KEY")
 
 
 class AgentState(TypedDict):
+    # El estado mantiene el historial del ciclo agente-herramienta; cada
+    # resultado MCP vuelve como mensaje para que el LLM pueda continuar.
     messages: Annotated[list, add_messages]
 
 
@@ -32,6 +34,8 @@ class PokemonMCPAgent:
 
     async def initialize(self):
         """Initialize MCP client and fetch available tools."""
+        # El agente descubre herramientas en runtime y queda desacoplado de la
+        # implementacion concreta del servidor MCP.
         self.mcp_client = Client(
             "https://parliamentary-gray-snipe.fastmcp.app/mcp",
             auth=mcp_api_key,
@@ -49,6 +53,8 @@ class PokemonMCPAgent:
 
     def _create_mcp_tool_wrapper(self, tool_name: str):
         """Create a LangChain tool wrapper for an MCP tool."""
+        # LangChain espera una herramienta propia; este wrapper traduce esa
+        # interfaz a una llamada MCP remota sin duplicar la logica del servidor.
         mcp_tool = self.mcp_tools[tool_name]
         tool_description = mcp_tool.description or f"Call the {tool_name} tool"
 
@@ -84,22 +90,24 @@ class PokemonMCPAgent:
 
             return asyncio.run(async_call())
 
-        # Build the tool with proper schema
+        # Se conserva el contrato MCP para que el LLM produzca argumentos
+        # estructurados en lugar de una cadena libre.
         tool_kwargs = {
             "name": tool_name,
             "description": tool_description,
         }
 
-        # If the tool has input schema, use it to define args_schema
+        # El inputSchema JSON se convierte en un modelo Pydantic que valida los
+        # tipos y campos antes de invocar la herramienta remota.
         if input_schema:
             from pydantic import create_model
             from typing import Optional, Any
 
-            # Extract properties from JSON schema
+            # Extraer propiedades y campos obligatorios del esquema MCP.
             properties = input_schema.get("properties", {})
             required = input_schema.get("required", [])
 
-            # Create field definitions for Pydantic model
+            # Crear definiciones que luego usara Pydantic para los argumentos.
             field_definitions = {}
             for prop_name, prop_schema in properties.items():
                 prop_type = Any
@@ -112,13 +120,13 @@ class PokemonMCPAgent:
                 elif prop_schema.get("type") == "boolean":
                     prop_type = bool
 
-                # Make optional if not required
+                # Los campos no requeridos pueden omitirse en la llamada.
                 if prop_name not in required:
                     prop_type = Optional[prop_type]
 
                 field_definitions[prop_name] = (prop_type, ...)
 
-            # Create the Pydantic model
+            # El modelo generado funciona como contrato local para LangChain.
             if field_definitions:
                 args_schema = create_model(f"{tool_name}_args", **field_definitions)
                 tool_kwargs["args_schema"] = args_schema
@@ -132,7 +140,7 @@ class PokemonMCPAgent:
 
     def build_graph(self):
         """Build the LangGraph agent."""
-        # Create tool wrappers for all MCP tools
+        # Se adapta cada herramienta descubierta antes de vincularla al LLM.
         langchain_tools = []
         for tool_name in self.mcp_tools.keys():
             try:
@@ -157,6 +165,8 @@ class PokemonMCPAgent:
         graph_builder.add_node("tools", tool_node)
 
         graph_builder.add_edge(START, "agent")
+        # El ciclo ReAct es: el modelo decide, la tool ejecuta y el resultado
+        # vuelve al modelo hasta que no haya mas tool_calls.
         graph_builder.add_conditional_edges("agent", tools_condition)
         graph_builder.add_edge("tools", "agent")
         graph_builder.add_edge("agent", END)
@@ -166,6 +176,8 @@ class PokemonMCPAgent:
 
     def stream_tool_responses(self, user_input: str):
         """Stream responses from the agent."""
+        # El streaming de nodos sirve para trazabilidad: muestra decisiones y
+        # resultados intermedios, no solo la respuesta final al usuario.
         for step in self.graph.stream({"messages": [HumanMessage(content=user_input)]}):
             print("\n--- Node Output ---")
             node_name = list(step.keys())[0]

@@ -114,7 +114,11 @@ graph_builder.add_edge("agent", END)
 graph = graph_builder.compile()
 
 def run(user_input: str):
+    # invoke espera a que finalicen todos los nodos y devuelve el estado final.
+    # Las tools igualmente se ejecutan, aunque aqui no se muestran sus pasos.
     result = graph.invoke({"messages": [HumanMessage(content=user_input)]})
+    # El ultimo mensaje suele ser la respuesta final despues de uno o mas
+    # ciclos agent -> tools; esta impresion oculta la trazabilidad intermedia.
     print(f"\n{result['messages'][-1].content}\n")
 
 

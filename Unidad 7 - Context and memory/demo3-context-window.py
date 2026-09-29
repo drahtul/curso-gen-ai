@@ -99,6 +99,8 @@ summarizer_llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-4.1-nano")
 
 def agent_node(state: AgentState):
     """Call the LLM with recent messages and summary context."""
+    # El estado puede conservar mas mensajes, pero el modelo solo recibe una
+    # ventana reciente. El resumen representa la informacion mas antigua.
     messages = state["messages"]
     summary = state["summary"]
 
@@ -108,6 +110,8 @@ def agent_node(state: AgentState):
             SystemMessage(content=f"Previous conversation summary:\n{summary}")
         )
 
+    # Cinco mensajes es una decision didactica: reduce tokens y coste, pero
+    # puede dejar fuera detalles que no hayan quedado en el resumen.
     recent_messages = messages[-5:] if len(messages) > 5 else messages
     context_messages.extend(recent_messages)
 
@@ -121,12 +125,16 @@ def summarizer_node(state: AgentState):
     messages = state["messages"]
     current_summary = state["summary"]
 
+    # Cuando la conversacion supera la ventana, se comprimen los mensajes
+    # antiguos. El resumen es generado por otro LLM y puede perder matices.
     if len(messages) > 5:
         conversation_text = "\n".join(
             f"{msg.type}: {msg.content if hasattr(msg, 'content') else str(msg)}"
             for msg in messages[:-5]
         )
 
+        # Se mantienen fuera de conversation_text los cinco mensajes recientes,
+        # porque el agent_node ya los envia directamente al modelo.
         summary_prompt = f"""Given this conversation history, provide a concise summary covering:
                             - Key topics discussed
                             - Important decisions made
@@ -162,6 +170,8 @@ graph_builder.add_node("agent", agent_node)
 graph_builder.add_node("summarizer", summarizer_node)
 
 graph_builder.add_edge(START, "agent")
+# Cada turno usa primero el resumen y la ventana reciente para responder, y
+# despues actualiza el resumen antes de finalizar el recorrido.
 graph_builder.add_edge("agent", "summarizer")
 graph_builder.add_edge("summarizer", END)
 
@@ -177,6 +187,8 @@ def stream_tool_responses(user_input: str, thread_id: str):
     """
     config = {"configurable": {"thread_id": thread_id}}
 
+    # El checkpointer guarda el estado del thread; la ventana enviada al LLM y
+    # el historial almacenado son conceptos distintos.
     for step in graph.stream(
         {"messages": [HumanMessage(content=user_input)], "summary": ""},
         config

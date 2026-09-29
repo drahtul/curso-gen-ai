@@ -9,10 +9,14 @@ PRICING = {
     "gpt-4.1-mini": (0.40, 1.60),
     "gpt-4o": (2.50, 10.00),
 }
+# Los precios son una tabla local para estimar coste, no una consulta en tiempo
+# real al proveedor. Debe mantenerse sincronizada con el modelo evaluado.
 
 
 def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
     """Cost of a single request. Unknown models cost 0 so demos never crash."""
+    # El coste separa tokens de entrada y salida porque suelen tener tarifas
+    # distintas. Un agente debe sumar todos sus turnos, no solo el ultimo.
     price_in, price_out = PRICING.get(model, (0.0, 0.0))
     return (input_tokens * price_in + output_tokens * price_out) / 1_000_000
 
@@ -43,8 +47,8 @@ NEGATIONS_AFTER = (
 def normalize_numbers(text: str) -> str:
     """Drop thousands separators so '1,830.90' matches a '1830' assertion.
 
-    Another detector bug found by running the suite: the agent was right and the
-    rule was comparing against a formatting choice.
+    La normalizacion evita que una regla confunda formato numerico con error
+    semantico: 1,830.90 y 1830 representan el mismo valor para este detector.
     """
     return re.sub(r"(?<=\d),(?=\d)", "", text)
 
@@ -52,8 +56,8 @@ def normalize_numbers(text: str) -> str:
 def asserts(text: str, needle: str) -> bool:
     """True when the text states the needle rather than denying it.
 
-    Used by every check for forbidden content, so that an answer which corrects
-    a false premise is not counted as repeating it.
+    Se usa para no contar como contenido prohibido una negacion que corrige una
+    premisa falsa. Es una heuristica de texto, no una comprension completa.
     """
     low = normalize_numbers(text.lower())
     needle = normalize_numbers(needle.lower())

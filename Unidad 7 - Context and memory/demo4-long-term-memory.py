@@ -22,7 +22,8 @@ openai_key = os.getenv("OPENAI_API_KEY")
 USER_ID = "user-1"
 
 
-# Semantic memory en Pinecone
+# Memoria semantica: almacena hechos o preferencias y los recupera por
+# similitud con embeddings, por eso es adecuada para consultas relacionadas.
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 pinecone_client = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 pinecone_index = pinecone_client.Index(os.getenv("PINECONE_INDEX_NAME", "semantic-memory"))
@@ -35,7 +36,8 @@ def retrieve_semantic_memories(query: str, k: int = 3) -> list:
     return [doc.page_content for doc in results]
 
 
-# Episodic memory en MongoDB
+# Memoria episodica: conserva acontecimientos fechados. MongoDB permite
+# recuperarlos como eventos recientes, no necesariamente por similitud.
 # mongo_client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 mongo_client = MongoClient(os.getenv("MONGODB_URI", "mongodb://mongo:mongo@localhost:27017/agent_long_term_memory?authSource=admin"))
 episodic_collection = mongo_client["agent_long_term_memory"]["episodic_events"]
@@ -47,7 +49,8 @@ def retrieve_episodic_memories(limit: int = 5) -> list:
     return [f"{doc['timestamp'].strftime('%Y-%m-%d %H:%M UTC')} - {doc['event']}" for doc in cursor]
 
 
-# Procedural memory en PostgreSQL
+# Memoria procedimental: guarda reglas sobre como debe comportarse el agente.
+# Se separa de los hechos del usuario porque funciona como instrucciones.
 def get_postgres_connection():
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "localhost"),
@@ -59,6 +62,8 @@ def get_postgres_connection():
 
 
 def init_procedural_memory_table():
+    # La tabla se prepara al iniciar para que la memoria procedimental pueda
+    # usarse aunque sea la primera ejecucion del programa.
     conn = get_postgres_connection()
     with conn.cursor() as cur:
         cur.execute(
@@ -157,6 +162,9 @@ class AgentState(TypedDict):
 
 def load_memory_node(state: AgentState):
     """Read all three long-term stores before the agent replies."""
+    # La consulta actual sirve para buscar memoria semantica; los eventos y
+    # reglas se cargan con sus propias estrategias y luego se unifican en un
+    # solo bloque de contexto que se incorporara al prompt del agente.
     last_message = state["messages"][-1]
     query = last_message.content if hasattr(last_message, "content") else str(last_message)
 
@@ -192,6 +200,9 @@ def extract_memory_node(state: AgentState):
     calls makes memory-saving consistent regardless of how chatty or subtle
     the user's phrasing is.
     """
+    # Esta extraccion ocurre despues de recuperar la memoria, pero antes de la
+    # respuesta. Por eso un recuerdo recien guardado no participa en el turno
+    # actual; estara disponible en una consulta posterior.
     last_message = state["messages"][-1]
     user_text = last_message.content if hasattr(last_message, "content") else str(last_message)
 
@@ -310,6 +321,8 @@ def verify_extraction(user_text: str, tool_name: str, proposed_value: str) -> bo
 
 def agent_node(state: AgentState):
     """Call the LLM with the conversation plus any retrieved long-term memory."""
+    # Las memorias recuperadas se presentan como instrucciones de sistema:
+    # aumentan el contexto del LLM sin mezclarse con el texto del usuario.
     memory_context = state["memory_context"]
 
     instructions = (

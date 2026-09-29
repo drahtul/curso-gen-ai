@@ -20,6 +20,8 @@ load_dotenv()
 openai_key = os.getenv("OPENAI_API_KEY")
 
 CHART_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "charts")
+# SQLite en memoria simula una fuente empresarial sin depender de un servidor
+# externo; los datos mock permiten concentrarse en el flujo agente -> SQL -> grafica.
 
 
 SCHEMA_SQL = """
@@ -122,6 +124,8 @@ def query_sales_database(sql_query: str) -> str:
 
     Solo se aceptan sentencias SELECT. Devuelve como maximo 200 filas.
     """
+    # El LLM propone SQL, pero SQLite es quien ejecuta la consulta y devuelve
+    # los datos. La herramienta no debe delegar la operacion al modelo.
     cleaned = sql_query.strip().rstrip(";").strip()
 
     if not cleaned.lower().startswith("select"):
@@ -174,6 +178,8 @@ def generate_chart(
 
     Devuelve la ruta del archivo generado.
     """
+    # La grafica es una transformacion determinista de datos ya recuperados;
+    # no genera cifras nuevas ni reemplaza la consulta SQL.
     if chart_type not in ("bar", "barh", "line"):
         return f"Error: chart_type '{chart_type}' no soportado. Usa 'bar', 'barh' o 'line'."
     if len(labels) != len(values):
@@ -182,6 +188,8 @@ def generate_chart(
         return "Error: no se recibieron datos para graficar."
 
     os.makedirs(CHART_DIR, exist_ok=True)
+    # Agg permite generar PNG en entornos sin interfaz grafica, como servidores
+    # o contenedores, en lugar de intentar abrir una ventana.
     output_path = os.path.join(CHART_DIR, os.path.basename(filename))
 
     fig, ax = plt.subplots(figsize=(9, 5), dpi=140)
@@ -244,6 +252,9 @@ Reglas de trabajo:
    'bar' para comparar pocas categorias, 'barh' cuando las etiquetas son largas.
 5. Cierra siempre con un resumen breve en texto de lo que encontraste.
 """
+# El prompt ordena consultar antes de graficar para reducir respuestas con
+# cifras inventadas, pero las validaciones de las tools son las restricciones
+# ejecutables que realmente controlan los datos.
 
 llm = ChatOpenAI(
     api_key=openai_key,
@@ -257,6 +268,8 @@ llm_with_tools = llm.bind_tools(tools)
 
 def agent_node(state: AgentState):
     """Llama al LLM con el historial actual de mensajes."""
+    # El modelo interpreta la solicitud y puede pedir una tool; el grafo decide
+    # si ejecutarla y luego devuelve su resultado al modelo.
     response = llm_with_tools.invoke(state["messages"])
     return {"messages": [response]}
 
@@ -284,6 +297,8 @@ def run_agent(user_input: str):
     }
 
     for step in graph.stream(initial_state):
+        # Mostrar cada nodo permite observar el ciclo query_sales_database ->
+        # generate_chart y distinguir llamadas de herramientas de respuestas.
         node_name = list(step.keys())[0]
         last_msg = step[node_name]["messages"][-1]
 

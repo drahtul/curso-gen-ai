@@ -18,6 +18,8 @@ checkpointer = InMemorySaver()
 
 
 class AgentState(TypedDict):
+    # El estado conserva tanto la propuesta del LLM como la decision humana;
+    # ambos datos son necesarios para reanudar la ejecucion correctamente.
     messages: Annotated[list, add_messages]
     draft: str
     approved: bool
@@ -35,6 +37,8 @@ def write_query(state: AgentState) -> dict:
 
 def human_review(state: AgentState) -> Command:
     """Pause the graph: a human must approve, reject or edit the query before it runs."""
+    # interrupt pausa el grafo de forma recuperable; no es solo un input local.
+    # El estado queda asociado al thread_id del checkpointer.
     decision = interrupt(
         {
             "question": "Run this query? (approve / reject / or type a replacement query)",
@@ -49,12 +53,15 @@ def human_review(state: AgentState) -> Command:
             update={"approved": False, "messages": [AIMessage(content="(query rejected, nothing was run)")]},
             goto=END,
         )
-    # Anything else is treated as a human-edited query.
+    # Cualquier otra entrada se interpreta como una consulta editada por la
+    # persona antes de permitir que continue el flujo.
     return Command(update={"draft": decision, "approved": True}, goto="execute")
 
 
 def execute(state: AgentState) -> dict:
     """'Execute' the approved query (simulated) and report back."""
+    # La ejecucion es simulada: en un sistema real esta frontera requeriria
+    # autorizacion, validacion SQL y controles contra inyeccion.
     return {"messages": [AIMessage(content=f"Executed: {state['draft']}")]}
 
 
@@ -71,9 +78,12 @@ graph = builder.compile(checkpointer=checkpointer)
 
 def ask(user_input: str, thread_id: str):
     """Run one turn, handling the interrupt interactively."""
+    # thread_id identifica el checkpoint que se debe recuperar al reanudar.
     config = {"configurable": {"thread_id": thread_id}}
     result = graph.invoke({"messages": [HumanMessage(content=user_input)]}, config)
 
+    # Command(resume=...) continua exactamente desde el punto suspendido, sin
+    # reconstruir manualmente todo el grafo.
     while "__interrupt__" in result:
         payload = result["__interrupt__"][0].value
         print("\n--- HUMAN IN THE LOOP ---")

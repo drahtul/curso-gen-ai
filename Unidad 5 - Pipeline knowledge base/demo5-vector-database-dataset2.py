@@ -16,8 +16,10 @@ df = pd.read_csv(csv_path)
 
 print(f"Loaded {len(df)} repositories.")
 
-# Las filas sin descripcion no aportan informacion semantica para el embedding.
+# Las filas sin descripcion no aportan informacion semantica para el embedding
+# y un vector generado desde texto vacio no ayuda al retrieval.
 df = df.dropna(subset=["description"])
+# strip distingue una cadena vacia o solo con espacios de una descripcion real.
 df = df[df["description"].astype(str).str.strip() != ""]
 
 # endregion
@@ -31,6 +33,8 @@ for _, repository in df.iterrows():
         Document(
             page_content=str(repository["description"]).strip(),
             metadata={
+                # URL, lenguaje y nombre permiten mostrar la fuente o aplicar
+                # filtros despues de recuperar por similitud semantica.
                 "repo_name": str(repository["repo_name"]),
                 "html_url": str(repository["html_url"]),
                 "language": str(repository["language"]),
@@ -74,12 +78,15 @@ index = pc.Index(index_name)
 index_stats = index.describe_index_stats()
 
 if index_stats["total_vector_count"] > 0:
+    # Se reutiliza el indice existente; no se compara automaticamente si el
+    # CSV cambio desde la carga anterior.
     vectorstore = PineconeVectorStore.from_existing_index(
         embedding=embedding_model,
         index_name=index_name,
     )
     print("Existing vector index loaded.")
 else:
+    # Solo en un indice vacio se vectorizan y persisten los documentos actuales.
     vectorstore = PineconeVectorStore.from_documents(
         documents=documents,
         embedding=embedding_model,

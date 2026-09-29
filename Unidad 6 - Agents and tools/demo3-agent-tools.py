@@ -24,7 +24,8 @@ def weather_tool(city: str) -> str:
     """
     Retrieve current weather for a city using Open-Meteo.
     """
-    # First, get coordinates from Open-Meteo geocoding API
+    # Es una herramienta compuesta: primero transforma la ciudad en
+    # coordenadas y luego consulta el clima real en otra API.
     geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={city}"
     geo_resp = requests.get(geo_url).json()
 
@@ -34,7 +35,8 @@ def weather_tool(city: str) -> str:
     lat = geo_resp["results"][0]["latitude"]
     lon = geo_resp["results"][0]["longitude"]
 
-    # Get current weather
+    # El modelo no recuerda el clima; la tool obtiene datos externos y los
+    # devuelve al grafo para que el LLM los use en su respuesta.
     weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
     weather_resp = requests.get(weather_url).json()
 
@@ -91,6 +93,8 @@ class AgentState(TypedDict):
 llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-4.1-nano")
 
 tools = [count_r_in_word, weather_tool, convert_temperature, analyze_text]
+# Las docstrings y anotaciones de estas funciones forman parte de la interfaz
+# que el modelo usa para elegir una herramienta y construir sus argumentos.
 llm_with_tools = llm.bind_tools(tools)
 
 def agent_node(state: AgentState):
@@ -103,17 +107,19 @@ tool_node = ToolNode(tools=tools)
 
 graph_builder = StateGraph(AgentState)
 
-# Add nodes
+# Los nodos representan decisiones del agente y ejecuciones deterministas de
+# herramientas externas o locales.
 graph_builder.add_node("agent", agent_node)
 graph_builder.add_node("tools", tool_node)
 
-# Add edges
+# Las aristas permiten varios ciclos: una consulta puede llamar a mas de una
+# herramienta y volver al agente despues de cada resultado.
 graph_builder.add_edge(START, "agent")
 graph_builder.add_conditional_edges("agent", tools_condition)
 graph_builder.add_edge("tools", "agent")
 graph_builder.add_edge("agent", END)
 
-# Compile the graph
+# Compilar transforma la definicion declarativa en un grafo ejecutable.
 graph = graph_builder.compile()
 
 def stream_tool_responses(user_input: str):
@@ -123,7 +129,8 @@ def stream_tool_responses(user_input: str):
         print(f"Node: {node_name}")
         state = step[node_name]
 
-        # Show the last message in detail
+        # Mostrar el ultimo mensaje permite distinguir una solicitud de tool
+        # de la respuesta final del modelo.
         last_msg = state["messages"][-1]
         print(f"Message type: {type(last_msg).__name__}")
 

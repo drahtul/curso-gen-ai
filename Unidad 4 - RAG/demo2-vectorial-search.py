@@ -18,6 +18,8 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def semantic_search(query, top_k=1):
+    # La consulta debe vectorizarse con el mismo modelo usado al indexar los
+    # documentos para que los vectores vivan en el mismo espacio semantico.
     query_embedding = model.encode(query).tolist()
 
     results = index.query(
@@ -25,6 +27,8 @@ def semantic_search(query, top_k=1):
         top_k=top_k,
         include_metadata=True
     )
+    # top_k controla cuantos candidatos devuelve Pinecone; el score depende
+    # de la metrica configurada en el indice.
     # print(query_embedding)
     print("\n🔍 SEMANTIC SEARCH RESULTS")
     for match in results["matches"]:
@@ -37,13 +41,16 @@ def semantic_search(query, top_k=1):
 def hybrid_search(query, rating=None, year=None, top_k=5):
     query_embedding = model.encode(query).tolist()
 
-    # Construcción del filtro metadata
+    # En este ejemplo "hibrida" significa similitud vectorial mas filtros de
+    # metadata; no combina embeddings con una busqueda lexical como BM25.
     filter_dict = {}
 
     if rating:
         filter_dict["rating"] = {"$eq": rating}
 
     if year:
+        # year se almaceno como texto durante la ingestion, por eso el filtro
+        # convierte el valor recibido a string y exige igualdad exacta.
         filter_dict["year"] = {"$eq": f"{year}"}
 
     results = index.query(

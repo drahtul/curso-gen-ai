@@ -29,6 +29,8 @@ class Classification(BaseModel):
 
 
 class RouterState(TypedDict):
+    # answers usa un reducer aditivo porque varios especialistas escriben en
+    # paralelo; sin el reducer una respuesta podria reemplazar a otra.
     question: str
     specialists: list
     answers: Annotated[list, operator.add]
@@ -41,6 +43,8 @@ class WorkerInput(TypedDict):
 
 
 def classify(state: RouterState) -> dict:
+    # La salida estructurada limita los dominios validos antes de crear las
+    # ejecuciones paralelas.
     decision = llm.with_structured_output(Classification).invoke(
         [
             ("system", "Classify which specialists (billing, technical, legal) must answer."),
@@ -52,6 +56,8 @@ def classify(state: RouterState) -> dict:
 
 
 def fan_out(state: RouterState):
+    # Send crea estados parciales dinamicos para el mismo nodo specialist;
+    # se diferencia de Command, que dirige una ejecucion a un destino.
     return [
         Send("specialist", {"question": state["question"], "specialist": name})
         for name in state["specialists"]
@@ -59,6 +65,8 @@ def fan_out(state: RouterState):
 
 
 def specialist(state: WorkerInput) -> dict:
+    # Cada especialista trabaja de forma independiente sobre la misma pregunta
+    # y aporta una respuesta que luego consumira el sintetizador.
     name = state["specialist"]
     response = llm.invoke([("system", SPECIALISTS[name]), ("user", state["question"])])
     print(f"  [{name}] {response.content[:90]}...")
@@ -66,6 +74,8 @@ def specialist(state: WorkerInput) -> dict:
 
 
 def synthesize(state: RouterState) -> dict:
+    # Esta etapa reduce las respuestas del fan-out a una salida coherente; es
+    # otra llamada generativa y puede introducir errores al fusionar criterios.
     joined = "\n".join(state["answers"])
     response = llm.invoke(
         [

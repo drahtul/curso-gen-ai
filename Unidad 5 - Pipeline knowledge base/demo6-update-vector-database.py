@@ -19,7 +19,8 @@ embedding_model = HuggingFaceEmbeddings(
 
 # endregion
 
-# Upsert a traves de Pinecone API
+# Estas funciones muestran tres estrategias para actualizar una knowledge
+# base: API directa, adaptador LangChain y versionado manual.
 def direct_upsert():
     print("Upsert a traves de Pinecone API")
 
@@ -28,7 +29,8 @@ def direct_upsert():
     new_embedding = embedding_model.embed_query(new_content)
 
     id = "06dd9f70-0859-4772-b489-c239b72c6faf"
-    # Upsert: Updates if exists, inserts if doesn't exist
+    # Upsert actualiza si el ID existe e inserta si no existe. El mismo ID es
+    # la identidad que permite reemplazar el embedding anterior.
     index.upsert(
         vectors=[
             {
@@ -66,6 +68,8 @@ def langchain_update_by_id():
     ids = ["doc-attention-002",
            "doc-attention-003"]
 
+    # Pasar IDs explicitos permite que add_documents actue como upsert y no
+    # dependa de identificadores generados al azar.
     result = vectorstore.add_documents(updated_docs, ids=ids)
 
     print(f"{len(result)} vectores actualizados: {result}")
@@ -78,7 +82,11 @@ def versioned_updates():
 
     id = "06dd9f70-0859-4772-b489-c239b72c6faf"
 
+    # Guardar la version anterior en metadata es versionado manual, no un
+    # historial transaccional completo de todos los cambios.
     v1_content = "Attention mechanism: ..."
+
+# Las funciones quedan definidas, pero este archivo no las invoca actualmente.
 
     v2_content = "Improved attention mechanism content with better explanation"
     v2_embedding = embedding_model.embed_query(v2_content)

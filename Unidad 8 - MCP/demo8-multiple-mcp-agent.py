@@ -12,6 +12,8 @@ pokemon_mcp_api_key = os.getenv("POKEMON_MCP_API_KEY")
 
 client = MultiServerMCPClient(
     {
+        # Cada nombre logico identifica el origen de las herramientas. El
+        # transporte y la credencial se configuran de forma independiente.
         "github": {
             "url": "https://api.githubcopilot.com/mcp/",
             "transport": "streamable_http",
@@ -26,11 +28,18 @@ client = MultiServerMCPClient(
 )
 
 checkpointer = InMemorySaver()
+# La memoria del hilo es comun al agente, aunque las herramientas provengan de
+# servidores MCP y dominios distintos.
 
 async def main():
+    # get_tools une las herramientas descubiertas en ambos servidores. El LLM
+    # recibe una sola coleccion, por lo que las descripciones deben ser claras
+    # para evitar ambiguedad o colisiones de nombres.
     tools = await client.get_tools()
     agent = create_agent("openai:gpt-4.1-nano", tools, checkpointer=checkpointer)
 
+    # thread_id conserva el contexto conversacional; no mezcla permisos ni
+    # credenciales entre GitHub y Pokemon.
     config = {"configurable": {"thread_id": "conversation-1"}}
 
     print("Chat con el agente MCP (GitHub + Pokemon).")
@@ -51,6 +60,8 @@ async def main():
             print("Hasta luego!")
             break
 
+        # El LLM puede elegir el dominio adecuado segun la intencion, pero cada
+        # tool sigue ejecutandose en su servidor MCP de origen.
         response = await agent.ainvoke(
             {"messages": user_input},
             config,

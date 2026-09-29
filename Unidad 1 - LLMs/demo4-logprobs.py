@@ -21,13 +21,17 @@ preguntas = [
 for pregunta in preguntas:
     response = client.responses.create(
         model="gpt-4o-mini", # Modelo que vamos a usar
-        instructions=instrucciones, # Instrucción que le damos al modelo para que responda de cierta manera
-        input=pregunta, # Pregunta que le hacemos al modelo
-        max_output_tokens=16, # Tokenes máximos de salida
-        top_logprobs=2, # Distribución de probabilidad de las 3 palabras más probables
-        include=["message.output_text.logprobs"], # Es para incluir la información de logprobs en la respuesta, que nos da la probabilidad de cada token generado
-        temperature=1, # Controla la creatividad del modelo, 1 es el creativo
-        top_p=1 # Controla la diversidad de las respuestas, 0.1 significa que solo considerará las palabras más probables
+        instructions=instrucciones, # Instruccion que orienta la generacion
+        input=pregunta, # Contexto que condiciona el siguiente token
+        max_output_tokens=16, # Limite de tokens de salida, no de palabras
+        # Devuelve el token elegido y dos alternativas por posicion.
+        top_logprobs=2,
+        # Solicita los logprobs para estudiar la distribucion token a token.
+        include=["message.output_text.logprobs"],
+        # temperature modifica la concentracion de la distribucion; top_p
+        # recorta por probabilidad acumulada. Aqui top_p queda en 1.
+        temperature=1,
+        top_p=1
     )
 
     logprobs = response.output[0].content[0].logprobs
@@ -38,6 +42,8 @@ for pregunta in preguntas:
 
     for i, logprob in enumerate(logprobs):
         certeza = math.exp(logprob.logprob)
+        # Esta certeza indica la probabilidad asignada a ese token en contexto,
+        # no la veracidad factual de toda la respuesta generada.
         print(f"\n  [{i}] elegido: {logprob.token!r} ({certeza:.2%})")
 
         for alternativa in logprob.top_logprobs:

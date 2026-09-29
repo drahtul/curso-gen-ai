@@ -99,6 +99,8 @@ def add_documents(
     batch_size: int = 100,
 ) -> List[str]:
     """Embed + upsert. Devuelve los IDs generados."""
+    # Se exponen por separado texto, embeddings, IDs y metadata para mostrar
+    # el contrato nativo que normalmente abstrae un vector store.
     texts = [d.page_content for d in documents]
     metadatas = [d.metadata or {} for d in documents]
     vectors = embedding_model.embed_documents(texts)
@@ -116,6 +118,7 @@ def add_documents(
         for i in range(len(documents))
     ]
 
+    # Los lotes reducen el tamano de cada peticion de upsert.
     for i in range(0, len(records), batch_size):
         index.upsert(vectors=records[i : i + batch_size], namespace=namespace)
 
@@ -131,6 +134,8 @@ def similarity_search(
     namespace: str = NAMESPACE,
 ) -> List[Document]:
     """Equivalente a vectorstore.similarity_search / retriever."""
+    # Este helper cumple el papel de un retriever: vectoriza la consulta y
+    # devuelve los documentos mas cercanos, opcionalmente filtrados.
     query_vector = embedding_model.embed_query(query)
 
     results = index.query(
@@ -144,6 +149,8 @@ def similarity_search(
     docs = []
     for match in results.matches:
         meta = match.metadata or {}
+        # Se separa el texto de metadata para reconstruir Document sin perder
+        # atributos que ayudan a explicar el origen recuperado.
         text = meta.pop("text", "")
         docs.append(Document(page_content=text, metadata=meta))
     return docs
@@ -177,6 +184,8 @@ retrieved_docs = similarity_search(
 
 context = "\n\n".join([doc.page_content for doc in retrieved_docs])
 
+# Retrieve-then-generate: primero se recupera contexto y luego se lo entrega
+# al modelo generativo, distinto del modelo que calcula embeddings.
 prompt = f"""Using the following context, answer the question.
 
 Question:
@@ -198,6 +207,8 @@ print("-" * 60)
 
 llm = ChatOpenAI(
     model="gpt-4o-mini",          # o "gpt-4o", "gpt-4.1-mini", etc.
+    # Temperatura 0 busca una respuesta mas estable; no garantiza exactitud
+    # ni elimina la necesidad de verificar el contexto recuperado.
     temperature=0,
     # api_key se toma automáticamente de OPENAI_API_KEY en el .env
 )

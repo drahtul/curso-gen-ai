@@ -28,6 +28,8 @@ semantic_store = PineconeVectorStore(index=pinecone_index, embedding=embeddings)
 llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-4.1-nano")
 
 SIMILARITY_SCORE_THRESHOLD = 0.6
+# Es un umbral empirico: por encima de este score se considera que vale la
+# pena pedir al LLM que compare dos recuerdos potencialmente relacionados.
 
 
 def deterministic_id(text: str, user_id: str) -> str:
@@ -40,6 +42,8 @@ def deterministic_id(text: str, user_id: str) -> str:
 def find_closest_memory(text: str):
     """Devuelve (id, texto, score de similitud) del recuerdo mas cercano del
     usuario, o None si el indice todavia no tiene nada de este usuario."""
+    # La busqueda semantica encuentra solo el vecino mas cercano. Esto es
+    # eficiente, pero no garantiza revisar todos los recuerdos parecidos.
     vector = embeddings.embed_query(text)
     results = pinecone_index.query(
         vector=vector,
@@ -107,6 +111,9 @@ def save_user_preference(preference: str) -> str:
     - inserts normally if it's genuinely new information.
     """
     
+    # La decision de escritura combina similitud vectorial y clasificacion
+    # semantica: duplicado se omite, contradiccion/actualizacion reemplaza y
+    # un hecho nuevo se inserta con un ID determinista.
     closest = find_closest_memory(preference)
 
     if closest is not None:
@@ -143,6 +150,8 @@ def dump_store():
     """Lista todo lo guardado del usuario. Pinecone no tiene un 'get all'
     directo como Chroma, asi que primero se listan los ids del namespace y
     luego se hace fetch de sus valores/metadata."""
+    # Es una operacion de inspeccion local; "dump" no envia ningun mensaje al
+    # LLM ni participa en el flujo conversacional del agente.
     print("\n[Memoria semantica actual]")
     ids = []
     for id_batch in pinecone_index.list():
@@ -188,6 +197,9 @@ def load_memory_node(state: AgentState):
 
 def agent_node(state: AgentState):
     """Call the LLM with the conversation plus any retrieved long-term memory."""
+    # La afirmacion enviada a la tool debe ser autocontenida. Asi los
+    # embeddings y la comparacion posterior representan un hecho completo,
+    # en lugar de fragmentos como "Python" o "eso".
     memory_context = state["memory_context"]
 
     instructions = (

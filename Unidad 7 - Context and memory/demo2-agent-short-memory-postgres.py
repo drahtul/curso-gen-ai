@@ -21,6 +21,9 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "agent_memory")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
 
+# Esta URI conecta el grafo con el almacenamiento persistente del checkpoint.
+# Si Docker publica PostgreSQL con otro puerto en el host, se debe configurar
+# POSTGRES_PORT con ese puerto, aunque el contenedor escuche internamente 5432.
 POSTGRES_URI = (
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
     f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
@@ -99,6 +102,8 @@ def analyze_text(text: str) -> dict:
 
 
 class AgentState(TypedDict):
+    # El estado sigue siendo el mismo del demo anterior; cambia el backend que
+    # guarda sus checkpoints, no la forma en que el agente usa el contexto.
     messages: Annotated[list, add_messages]
 
 llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-4.1-nano")
@@ -120,6 +125,8 @@ graph_builder.add_node("agent", agent_node)
 graph_builder.add_node("tools", tool_node)
 
 graph_builder.add_edge(START, "agent")
+# La ruta agent -> tools -> agent implementa tool calling. La persistencia del
+# historial se resuelve despues, al compilar con PostgresSaver.
 graph_builder.add_conditional_edges("agent", tools_condition)
 graph_builder.add_edge("tools", "agent")
 graph_builder.add_edge("agent", END)
@@ -161,9 +168,13 @@ if __name__ == "__main__":
     print("persisted in PostgreSQL, so history survives process restarts.")
     print("Type 'exit' to quit\n")
 
+    # Un thread_id distinto representa otra conversacion persistente y aislada.
     thread_id = "conversation-5"
     # print(POSTGRES_URI)
     with PostgresSaver.from_conn_string(POSTGRES_URI) as checkpointer:
+        # setup crea o actualiza las tablas necesarias para guardar el estado.
+        # El grafo se compila dentro del contexto para usar este checkpointer
+        # mientras la conexion y los recursos de Postgres estan disponibles.
         checkpointer.setup()
         graph = graph_builder.compile(checkpointer=checkpointer)
 

@@ -23,6 +23,8 @@ def cargar_documentos_peliculas():
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in list(reader)[:MOVIES_LIMIT]:
+            # Solo la sinopsis se vectoriza: contiene significado narrativo.
+            # Los campos restantes quedan como metadata para mostrar o filtrar.
             texto = (
                 # f"Título: {row['Series_Title']}\n"
                 # f"Año: {row['Released_Year']}\n"
@@ -35,6 +37,8 @@ def cargar_documentos_peliculas():
                 Document(
                     page_content=texto,
                     metadata={
+                        # La metadata no necesariamente participa en la
+                        # similitud; conserva atributos utiles para el resultado.
                         "domain": "peliculas",
                         "title": row["Series_Title"],
                         "year": row["Released_Year"],
@@ -61,6 +65,8 @@ index_name = "imbd-top-1000"
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
 if index_name not in [index["name"] for index in pc.list_indexes()]:
+    # El nombre y la dimension deben coincidir con el indice existente. No se
+    # renombra aqui para preservar la configuracion actual de la demo.
     pc.create_index(
         name=index_name,
         dimension=384,
@@ -91,6 +97,8 @@ if index_stats["total_vector_count"] > 0:
     )
     print("Existing vector index loaded.")
 else:
+    # from_documents genera embeddings y persiste los documentos en Pinecone;
+    # si el indice ya tiene vectores, este script no detecta cambios del CSV.
     vectorstore = PineconeVectorStore.from_documents(
         documents=documentos,
         embedding=embedding_model,

@@ -88,6 +88,8 @@ class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
 
 llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-4.1-nano", streaming=True)
+# streaming=True permite recibir la respuesta de forma incremental; las
+# herramientas siguen ejecutandose como operaciones completas entre mensajes.
 
 tools = [count_r_in_word, weather_tool, convert_temperature, analyze_text]
 llm_with_tools = llm.bind_tools(tools)
@@ -115,10 +117,14 @@ graph = graph_builder.compile()
 def run(user_input: str):
     """Print the answer token by token, as the model writes it."""
     print()
+    # stream_mode="messages" emite fragmentos de mensajes junto con metadata,
+    # no estados completos del grafo por cada nodo.
     for chunk, metadata in graph.stream(
         {"messages": [HumanMessage(content=user_input)]},
         stream_mode="messages",
     ):
+        # AIMessageChunk es una parte acumulable del mensaje del modelo. El
+        # flush inmediato reduce la latencia percibida en la consola.
         if isinstance(chunk, AIMessageChunk) and chunk.content:
             print(chunk.content, end="", flush=True)
     print("\n")

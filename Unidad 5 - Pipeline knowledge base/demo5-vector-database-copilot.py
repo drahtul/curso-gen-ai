@@ -98,16 +98,22 @@ embedding_model = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
+# Esta variante muestra de forma explicita el pipeline texto -> embedding ->
+# vector store. El texto se conserva en metadata para reconstruir Document.
 index = pc.Index(index_name)
 index_stats = index.describe_index_stats()
 
 if index_stats["total_vector_count"] == 0:
+    # Se evita recargar el indice si ya contiene vectores. En un pipeline real
+    # tambien seria necesario detectar documentos nuevos o modificados.
     chunk_embeddings = embedding_model.embed_documents(
         [chunk.page_content for chunk in chunks]
     )
 
     vectors = []
     for chunk, embedding in zip(chunks, chunk_embeddings):
+        # La dimension del embedding debe coincidir con la del indice; source
+        # y page permiten rastrear el origen del fragmento recuperado.
         metadata = {
             **chunk.metadata,
             "text": chunk.page_content,
@@ -118,11 +124,15 @@ if index_stats["total_vector_count"] == 0:
             "metadata": metadata,
         })
 
+    # Los UUID hacen esta carga no determinista y dificultan reconocer el mismo
+    # chunk en otra ejecucion.
     index.upsert(vectors=vectors)
 
 query = "Whats attention?"
 query_embedding = embedding_model.embed_query(query)
 
+# La consulta tambien se transforma al mismo espacio vectorial antes de
+# buscar; top_k=3 selecciona los tres candidatos mas cercanos.
 results = index.query(
     vector=query_embedding,
     top_k=3,
@@ -131,6 +141,8 @@ results = index.query(
 
 retrieved_docs = []
 for match in results["matches"]:
+    # Pinecone devuelve metadata, por lo que se adapta a Document para que el
+    # resto del pipeline trabaje con una interfaz comun.
     metadata = match.get("metadata", {})
     retrieved_docs.append(
         Document(
@@ -145,6 +157,8 @@ for match in results["matches"]:
 
 context = "\n\n".join([doc.page_content for doc in retrieved_docs])
 
+# Este script prepara el contexto y el prompt, pero no invoca un LLM generativo;
+# termina antes de la etapa Generate de RAG.
 prompt = f"""Using the following context, answer the question.
 
 Question:

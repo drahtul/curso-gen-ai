@@ -114,6 +114,9 @@ graph_builder.add_edge("agent", END)
 graph = graph_builder.compile()
 
 def stream_tool_responses(user_input: str):
+    # Cada iteracion recibe un HumanMessage nuevo. El bucle de consola no
+    # agrega consultas anteriores al estado, por lo que no crea memoria por si
+    # mismo.
     for step in graph.stream({"messages": [HumanMessage(content=user_input)]}):
         print("\n--- Node Output ---")
         node_name = list(step.keys())[0]
@@ -142,6 +145,8 @@ if __name__ == "__main__":
 
     while True:
         user_query = input("Enter your query: ").strip()
+        # exit controla la aplicacion localmente; no se envia como instruccion
+        # al LLM. La validacion vacia evita una llamada innecesaria.
         if user_query.lower() == "exit":
             print("Goodbye!")
             break

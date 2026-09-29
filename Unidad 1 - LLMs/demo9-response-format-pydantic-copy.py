@@ -10,6 +10,8 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
 
 class Libro(BaseModel):
+    # Pydantic representa la salida esperada como una estructura tipada y
+    # facilita su validacion antes de integrarla con el resto de la aplicacion.
     título: str
     autor: str
     género: str
@@ -23,7 +25,8 @@ response = client.responses.parse(
 
 libro: Libro = response.output_parsed
 
-# Muestra el nombre de la clase del objeto almacenado en 'libro'
+# La respuesta parseada es una instancia de Libro, no un diccionario comun.
 print(type(libro).__name__)
-# Convierte el objeto Pydantic en un diccionario Python para mostrarlo o usarlo fácilmente
+# model_dump() serializa localmente esa instancia a un diccionario Python;
+# esto ocurre despues de recibir y validar la respuesta del modelo.
 print(libro.model_dump())

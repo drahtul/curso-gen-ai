@@ -41,6 +41,8 @@ cleaned_docs = []
 for page_number, page in enumerate(docs, start=1):
 
     cleaned_docs.append(
+        # Document mantiene unido el contenido que se vectorizara y metadata
+        # como fuente y pagina, que luego permite citar o filtrar resultados.
         Document(
             page_content=clean_text(page.get_text()),
             metadata={
@@ -57,6 +59,8 @@ print("Limpieza de texto completada")
 # region Chunking de texto
 
 text_splitter = RecursiveCharacterTextSplitter(
+    # Tamano y solapamiento equilibran contexto, precision de retrieval,
+    # cantidad de vectores y costo de embeddings.
     chunk_size=500,
     chunk_overlap=50
 )
@@ -77,6 +81,8 @@ index_name = "papers-index-v1"
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
 if index_name not in [i["name"] for i in pc.list_indexes()]:
+    # La dimension debe coincidir exactamente con la salida del modelo de
+    # embeddings; cosine compara la orientacion de los vectores.
     pc.create_index(
         name=index_name,
         dimension=384,
@@ -101,6 +107,8 @@ index = pc.Index(index_name)
 index_stats = index.describe_index_stats()
 
 if index_stats["total_vector_count"] > 0:
+    # Reutilizar el indice evita duplicar la carga cuando ya hay vectores;
+    # esta inicializacion es idempotente solo de forma aproximada.
     vectorstore = PineconeVectorStore.from_existing_index(
         embedding=embedding_model,
         index_name=index_name
@@ -119,6 +127,8 @@ retrieved_docs = retriever.invoke(query)
 
 context = "\n\n".join([doc.page_content for doc in retrieved_docs])
 
+# Retrieve: estos tres documentos aportan el contexto que se incorporara al
+# prompt. Este demo termina antes de llamar a un modelo generativo (Generate).
 prompt = f"""Using the following context, answer the question.
 
 Question:
