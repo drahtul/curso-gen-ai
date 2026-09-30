@@ -48,6 +48,9 @@ class ClienteAPIsPaises:
         """
         Obtiene la lista completa de países de la API local
         """
+        # La cache evita repetir la misma consulta en cada turno; el modelo
+        # recibe datos externos actualizados por la primera carga, no memoria
+        # propia sobre los paises.
         if self.cache_paises is not None:
             self._log("Usando caché de países", "CACHE")
             return self.cache_paises
@@ -123,7 +126,8 @@ class ClienteAPIsPaises:
         if not paises_lista:
             return None
         
-        # Buscar coincidencias en la lista de países
+        # La deteccion compara texto contra un catalogo controlado, en lugar
+        # de pedirle al LLM que invente o adivine el nombre de un pais.
         for pais_item in paises_lista:
             # La API retorna strings con el nombre del país
             if isinstance(pais_item, str):
@@ -180,7 +184,8 @@ class ClienteAPIsPaises:
             if not monedas_str:
                 monedas_str = "N/A"
             
-            # Construir texto de contexto
+            # Este bloque es contexto aumentado: se incorpora al prompt para
+            # grounding y restringe la respuesta a datos devueltos por la API.
             contexto = f"""
 ═══════════════════════════════════════════════════════════════
 DATOS DEL PAÍS (Información actualizada de la API):
@@ -274,13 +279,15 @@ class ChatbotPaises:
         """
         self._log("FASE 3: RESPUESTA - Generando respuesta con OpenAI", "FASE")
         
-        # Preparar el mensaje para el LLM
+        # Se separa la pregunta original del contexto recuperado. El LLM
+        # redacta la respuesta, pero la API local aporta la fuente de datos.
         contenido_mensaje = mensaje_usuario
         
         if contexto_pais:
             contenido_mensaje = f"{contexto_pais}\nPregunta del usuario: {mensaje_usuario}"
         
-        # Construir historial de mensajes
+        # El historial conserva continuidad conversacional; el contexto del
+        # pais solo se agrega al turno en que fue recuperado.
         mensajes = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
@@ -314,6 +321,8 @@ class ChatbotPaises:
         print("\n" + "="*70)
         self._log(f"Usuario: {mensaje_usuario}", "INPUT")
         
+        # El pipeline separa deteccion, recuperacion/inyeccion y generacion;
+        # asi se puede inspeccionar que dato llego al modelo.
         # FASE 1: Detectar si hay país
         pais_detectado = self.fase_1_detectar_pais(mensaje_usuario)
         
@@ -325,7 +334,8 @@ class ChatbotPaises:
         # FASE 3: Generar respuesta
         respuesta = self.fase_3_generar_respuesta(mensaje_usuario, contexto_pais)
         
-        # Actualizar historial (sin el contexto inyectado, solo el mensaje original)
+        # Se guarda el intercambio original, no el bloque de contexto, para no
+        # contaminar el historial con datos que pueden cambiar en otro turno.
         self.historial.append({"role": "user", "content": mensaje_usuario})
         self.historial.append({"role": "assistant", "content": respuesta})
         

@@ -52,6 +52,8 @@ def consultar_clima(ciudad: str) -> str:
     'Montevideo' o 'Madrid'. Si el usuario pregunta por la capital de un país,
     primero obtené la capital con `consultar_pais` y luego llamá a esta tool.
     """
+    # La tool encapsula dos consultas: geocodificacion y pronostico. El agente
+    # recibe el resultado factual, no necesita conocer la API REST interna.
     try:
         geo = requests.get(
             OPEN_METEO_GEO_URL,
@@ -61,6 +63,8 @@ def consultar_clima(ciudad: str) -> str:
     except requests.RequestException as exc:
         return f"ERROR: no se pudo contactar el servicio de geocodificación ({exc})."
 
+    # Un resultado vacio es una señal explicita para que el LLM admita que no
+    # hay datos, en lugar de completar la respuesta por su cuenta.
     resultados = geo.get("results") or []
     if not resultados:
         return (
@@ -123,6 +127,8 @@ def consultar_pais(pais: str) -> str:
     El nombre del país debe pasarse en INGLÉS (por ejemplo 'Japan', 'Brazil',
     'Norway', 'France'), tal como lo espera la API de países.
     """
+    # El nombre del pais se convierte en una URL segura y la respuesta de la
+    # API funciona como fuente de grounding para el agente.
     url = f"{COUNTRIES_API_URL}/countries/{requests.utils.quote(pais)}"
 
     try:

@@ -25,6 +25,8 @@ SIN_INFO = (
 
 embedding_model_instance = SentenceTransformer(EMBEDDING_MODEL)
 pinecone_instance = Pinecone(api_key=PINECONE_API_KEY)
+# Todas las consultas deben usar el mismo modelo de embeddings que se uso al
+# indexar, para vivir en el mismo espacio vectorial.
 
 
 def _index_exists(index_name: str) -> bool:
@@ -67,6 +69,8 @@ def buscar_en_indice(consulta: str, index_name: str, dominio: str) -> str:
     supera el umbral de similitud; el agente usa esa señal para admitir que no
     tiene información en lugar de inventarla.
     """
+    # Retrieval: se transforma la consulta en vector y se recuperan candidatos
+    # por similitud semantica antes de que el LLM redacte una respuesta.
     if not _index_exists(index_name):
         return SIN_INFO.format(dominio=dominio) + f" (el índice '{index_name}' no existe)"
 
@@ -79,13 +83,15 @@ def buscar_en_indice(consulta: str, index_name: str, dominio: str) -> str:
         include_metadata=True,
     )
 
+    # Se filtra por umbral y se deduplican obras porque varios chunks pueden
+    # pertenecer al mismo titulo; asi el contexto final evita repeticiones.
     matches = []
     titulos_vistos = set()
     for m in resultados.get("matches", []):
         if m["score"] < MIN_SCORE:
             continue
-        # Los índices suelen tener varios chunks de la misma obra: nos quedamos
-        # con el mejor de cada título para no repetir información.
+        # Los indices suelen tener varios chunks de la misma obra: se conserva
+        # el mejor de cada titulo para no repetir informacion.
         titulo = ((m.get("metadata") or {}).get("title") or m["id"]).lower()
         if titulo in titulos_vistos:
             continue
@@ -95,6 +101,8 @@ def buscar_en_indice(consulta: str, index_name: str, dominio: str) -> str:
     if not matches:
         return SIN_INFO.format(dominio=dominio)
 
+    # El encabezado convierte la recuperacion en una instruccion de grounding:
+    # si el dato no aparece literalmente, el agente debe reconocer la ausencia.
     encabezado = (
         f"Resultados de la base vectorial de {dominio} para '{consulta}'. "
         "Usá EXCLUSIVAMENTE los datos que aparecen abajo. Si el dato puntual que "

@@ -46,6 +46,8 @@ TOOLS = [
 ]
 
 class AgentState(TypedDict):
+    # add_messages conserva el contexto del ciclo agente -> tools -> agente;
+    # los resultados de las herramientas vuelven al historial como mensajes.
     messages: Annotated[list, add_messages]
 
 llm = ChatOpenAI(
@@ -57,6 +59,8 @@ llm_with_tools = llm.bind_tools(TOOLS)
 
 def agent_node(state: AgentState) -> dict:
     """Nodo razonador: decide si responde o si llama a una tool."""
+    # El prompt impone grounding por dominio: el LLM decide la tool, pero no
+    # debe completar datos ausentes con conocimiento propio.
     mensajes = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
     return {"messages": [llm_with_tools.invoke(mensajes)]}
 
@@ -69,6 +73,8 @@ def build_graph():
 
     graph_builder.add_edge(START, "agent")
     graph_builder.add_conditional_edges("agent", tools_condition)
+    # Una consulta compuesta puede repetir el ciclo, por ejemplo pais -> clima,
+    # hasta que el modelo tenga suficiente evidencia para responder.
     graph_builder.add_edge("tools", "agent")
     graph_builder.add_edge("agent", END)
 

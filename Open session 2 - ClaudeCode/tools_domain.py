@@ -41,8 +41,8 @@ def _formatear_resultados(resultados):
     return "\n\n---\n\n".join(doc.page_content for doc in resultados)
 
 
-# Los vectorstores se instancian una sola vez al importar el módulo,
-# igual que hacían las demos con `index = pc.Index(...)`.
+# Los vectorstores se instancian una sola vez al importar el modulo para
+# reutilizar conexiones y modelo; cada tool sigue consultando un dominio.
 _peliculas_vs = _vectorstore(INDEX_PELICULAS)
 _libros_vs = _vectorstore(INDEX_LIBROS)
 _recetas_vs = _vectorstore(INDEX_RECETAS)
@@ -55,6 +55,8 @@ def buscar_peliculas(consulta: str) -> str:
     director, duración, año o sinopsis (ej: "recomiéndame una película
     de ciencia ficción", "¿quién dirigió Inception?", "¿cuánto dura
     Titanic?")."""
+    # La tool es la frontera entre el agente y el retrieval semantico: devuelve
+    # contexto recuperado, no una respuesta generada por el LLM.
     print(f"  -> [tool] buscar_peliculas('{consulta}')")
     resultados = _peliculas_vs.similarity_search(consulta, k=3)
     return _formatear_resultados(resultados)

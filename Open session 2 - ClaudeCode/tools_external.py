@@ -50,6 +50,8 @@ WEATHER_CODES = {
 # region Clima
 
 def _obtener_coordenadas(ciudad):
+    # Primero se resuelve la ciudad a coordenadas; luego la segunda API usa
+    # esas coordenadas para obtener el clima, igual que una tool compuesta.
     print(f"  -> [API] GET {GEOCODING_URL}?name={ciudad}")
     response = requests.get(
         GEOCODING_URL,
@@ -72,6 +74,8 @@ def consultar_clima(ciudad: str) -> str:
     o si va a llover en una ciudad determinada (ej: "¿cómo está el clima
     en Montevideo?", "¿va a llover hoy en Madrid?"). El parámetro debe
     ser el nombre de una ciudad, no de un país."""
+    # Los datos provienen de una API viva y se entregan al agente como fuente
+    # externa, no como conocimiento memorizado por el modelo.
     ubicacion = _obtener_coordenadas(ciudad)
     if not ubicacion:
         return f'No se encontró la ciudad "{ciudad}".'
@@ -114,6 +118,8 @@ def consultar_pais(nombre: str) -> str:
     necesario cuando preguntan por el clima de la capital de un país:
     primero conseguí la capital acá y después consultá consultar_clima
     con esa ciudad."""
+    # Esta tool se puede encadenar con consultar_clima: la capital devuelta por
+    # esta API se convierte en la entrada de la siguiente herramienta.
     url = COUNTRIES_URL.format(name=nombre)
     print(f"  -> [API] GET {url}")
     response = requests.get(

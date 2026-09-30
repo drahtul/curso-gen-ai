@@ -9,6 +9,8 @@ from agent import preguntar
 
 
 def main():
+    # La consola solo es la interfaz; el razonamiento, el routing y las tools
+    # viven en agent.py y se ejecutan mediante el grafo LangGraph.
     print("Agente multidominio (películas, libros, recetas, clima, países).")
     print("Escribí 'salir' para terminar.\n")
 

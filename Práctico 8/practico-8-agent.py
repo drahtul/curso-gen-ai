@@ -30,6 +30,8 @@ def calcular_total(precios: list[float]) -> float:
     Args:
         precios: Lista con el precio de cada producto de la compra (ej: [4500, 800])
     """
+    # El LLM decide cuando usar la herramienta, pero Python ejecuta la suma de
+    # forma determinista para evitar aritmetica generada de manera insegura.
     return round(sum(precios), 2)
 
 
@@ -42,6 +44,8 @@ def calcular_envio(monto_compra: float) -> dict:
     Args:
         monto_compra: Monto total de la compra (sin envío)
     """
+    # Las reglas comerciales viven en una tool ejecutable y auditable; no se
+    # dejan como una instruccion textual que el modelo pueda interpretar mal.
     if monto_compra < 1000:
         envio = 120.0
     elif monto_compra <= 5000:
@@ -59,6 +63,8 @@ LOCAL_TOOLS = [calcular_total, calcular_envio]
 
 
 class AgentState(TypedDict):
+    # add_messages conserva el historial del ciclo agente-herramienta-agente y
+    # permite que el modelo use resultados anteriores del mismo turno.
     messages: Annotated[list, add_messages]
 
 
@@ -77,14 +83,20 @@ class TechStoreAgent:
 
     async def initialize(self):
         """Conecta con el servidor MCP y descubre sus tools, prompt y resource."""
+        # El transporte Streamable HTTP conecta con un servidor remoto; el
+        # agente no importa ni ejecuta directamente el codigo del servidor.
         read, write, _ = await self._exit_stack.enter_async_context(
             streamablehttp_client(MCP_SERVER_URL, 
                                   headers={"Authorization": f"Bearer {mcp_api_key}"},
                                   )
         )
         self.session = await self._exit_stack.enter_async_context(ClientSession(read, write))
+        # initialize negocia capacidades MCP antes de listar o invocar recursos
+        # y herramientas.
         await self.session.initialize()
 
+        # Las tools remotas y locales comparten el espacio que recibe el LLM,
+        # pero cada una conserva su origen y sus reglas de ejecucion.
         mcp_tools = await load_mcp_tools(self.session)
         self.tools = mcp_tools + LOCAL_TOOLS
 
@@ -95,11 +107,15 @@ class TechStoreAgent:
         for t in LOCAL_TOOLS:
             print(f"  - [LOCAL] {t.name}")
 
+        # Los prompts MCP son plantillas de instrucciones, distintas de las
+        # tools (acciones) y de los resources (contexto de referencia).
         self.prompts = (await self.session.list_prompts()).prompts
         print(f"Prompts disponibles en el servidor MCP ({len(self.prompts)}):")
         for p in self.prompts:
             print(f"  - {p.name}: {p.description}")
 
+        # El resource se lee durante la inicializacion y se incorpora al prompt
+        # base para que el modelo responda con la politica recuperada.
         politica = await self.session.read_resource("techstore://politica-garantias")
         politica_texto = politica.contents[0].text
 
@@ -113,6 +129,8 @@ class TechStoreAgent:
 
     async def activar_prompt(self, name: str):
         """Obtiene un prompt del servidor MCP y lo agrega al system prompt."""
+        # Activar un prompt cambia las instrucciones de sistema del agente, no
+        # la implementacion de las herramientas ni el estado de la tienda.
         prompt_def = next((p for p in self.prompts if p.name == name), None)
         if prompt_def is None:
             print(f"No existe el prompt '{name}'. Usa /prompts para ver los disponibles.\n")
@@ -146,10 +164,14 @@ class TechStoreAgent:
         print()
 
     async def close(self):
+        # Cerrar el AsyncExitStack libera la sesion y el transporte HTTP aunque
+        # la ejecucion termine por error o por la salida del usuario.
         await self._exit_stack.aclose()
 
     def build_graph(self):
         """Construye el grafo ReAct: agent <-> tools."""
+        # bind_tools entrega al LLM los contratos; ToolNode ejecuta la tool que
+        # el modelo solicite y devuelve el resultado al siguiente turno.
         llm_with_tools = self.llm.bind_tools(self.tools)
 
         async def agent_node(state: AgentState):
@@ -166,13 +188,19 @@ class TechStoreAgent:
 
         graph_builder.add_edge(START, "agent")
         graph_builder.add_conditional_edges("agent", tools_condition)
+        # El ciclo permite varias llamadas consecutivas, por ejemplo buscar un
+        # producto y despues calcular su envio con una tool local.
         graph_builder.add_edge("tools", "agent")
 
         self.graph = graph_builder.compile(checkpointer=self.checkpointer)
 
     async def stream_tool_responses(self, user_input: str, thread_id: str = "default"):
         """Ejecuta el agente mostrando qué tools usa (MCP o local) en cada paso."""
+        # El origen se muestra para estudiar la orquestacion entre capacidades
+        # remotas MCP y funciones locales dentro del mismo agente.
         local_names = {t.name for t in LOCAL_TOOLS}
+        # El thread_id identifica el checkpoint de memoria corta de LangGraph;
+        # InMemorySaver no persiste el historial despues de cerrar el proceso.
         config = {"configurable": {"thread_id": thread_id}}
 
         async for step in self.graph.astream(

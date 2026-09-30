@@ -76,6 +76,8 @@ Reglas importantes:
 
 
 class AgentState(TypedDict):
+    # El reducer acumula mensajes de usuario, modelo y herramientas para que
+    # el siguiente paso pueda usar el resultado de la tool anterior.
     messages: Annotated[list, add_messages]
 
 
@@ -85,6 +87,8 @@ llm_with_tools = llm.bind_tools(TOOLS)
 
 def agent_node(state: AgentState):
     """Llama al LLM con el historial actual de mensajes."""
+    # El modelo decide responder, llamar una tool o encadenar varias; el grafo
+    # controla la ejecucion y devuelve cada resultado al contexto.
     response = llm_with_tools.invoke(state["messages"])
     return {"messages": [response]}
 
@@ -98,6 +102,8 @@ graph_builder.add_node("tools", tool_node)
 
 graph_builder.add_edge(START, "agent")
 graph_builder.add_conditional_edges("agent", tools_condition)
+# Este ciclo implementa el patron ReAct: razonamiento/decision, accion de tool
+# y nueva observacion antes de producir la respuesta final.
 graph_builder.add_edge("tools", "agent")
 graph_builder.add_edge("agent", END)
 

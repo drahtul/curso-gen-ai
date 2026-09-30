@@ -35,6 +35,8 @@ def consultar_api(ruta):
 
 
 def obtener_catalogo():
+    # El catalogo funciona como contexto controlado para el clasificador y
+    # permite distinguir paises disponibles de conocimiento general del LLM.
     try:
         return consultar_api("/countries")
     except Exception as error:
@@ -54,7 +56,8 @@ def obtener_info_pais(nombre):
 # Paso 1: DETECCIÓN
 
 def detectar_pais(mensaje, paises):
-    
+    # La salida estructurada restringe la clasificacion a nombres validos o
+    # "ninguno", evitando que el modelo responda la pregunta en esta fase.
     prompt = f"""Sos un clasificador. Tu única tarea es identificar si el mensaje
             del usuario pregunta por alguno de estos países:
 
@@ -106,6 +109,8 @@ def responder(mensaje, historial, catalogo, datos_pais=None):
       2. Detalle del país detectado (si lo hay) -> distinto en cada turno,
          siempre al final, para no romper el prefijo cacheable del bloque 1.
     """
+    # El catalogo estable queda al principio del prompt; el detalle variable se
+    # agrega al final para conservar un prefijo reutilizable y cacheable.
     system_prompt = f"""Sos un asistente conversacional especializado en información de países.
 
 Catálogo de países disponibles (nombre, capital, región, población):
@@ -120,12 +125,15 @@ Reglas:
 - Sé breve.
 """
 
+    # Solo se inyecta el detalle si la fase de deteccion encontro un pais valido.
     if datos_pais:
         system_prompt += f"""
 Detalle ampliado del país consultado en este turno:
 {json.dumps(datos_pais, ensure_ascii=False, indent=2)}
 """
 
+    # El historial aporta memoria conversacional, mientras catalogo y detalle
+    # aportan grounding verificable para el turno actual.
     entrada = [{"role": "system", "content": system_prompt}]
     entrada += historial
     entrada.append({"role": "user", "content": mensaje})
@@ -168,10 +176,12 @@ def main():
             print("¡Hasta luego!")
             break
 
+        # El flujo separa clasificacion, recuperacion de datos y generacion;
+        # cada paso tiene una responsabilidad observable.
         # Paso 1: detección
         pais = detectar_pais(mensaje, nombres_paises)
 
-        # Paso 2: inyección (solo el detalle variable, el catálogo ya está fijo)
+        # Paso 2: inyección; el catálogo ya está fijo y solo cambia el detalle.
         datos_pais = obtener_info_pais(pais) if pais else None
         if pais:
             print(f"[debug] País detectado: {pais}")

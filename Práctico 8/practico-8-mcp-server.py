@@ -3,6 +3,8 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("techstore")
+# FastMCP expone un contrato MCP: clientes y agentes pueden descubrir las
+# herramientas, sus descripciones y sus argumentos sin importar este modulo.
 
 PRODUCTOS = [
     {"id": 1, "nombre": "Teclado mecánico Logitech G413", "categoria": "Teclados", "precio": 1850.0, "stock": 12},
@@ -41,6 +43,8 @@ def _buscar(nombre: str) -> list[dict]:
 
 def _resolver_producto(nombre: str) -> dict:
     """Devuelve el producto si hay una única coincidencia, o un error descriptivo."""
+    # Resolver una unica coincidencia evita que el modelo reciba un precio o
+    # stock ambiguo y tenga que adivinar a que producto se refiere.
     coincidencias = _buscar(nombre)
     if not coincidencias:
         return {"ok": False, "error": f"No se encontró ningún producto que coincida con '{nombre}'"}
@@ -55,6 +59,8 @@ def _resolver_producto(nombre: str) -> dict:
 
 @mcp.tool()
 def buscar_producto(nombre: str) -> Any:
+    # Una tool MCP encapsula una operacion determinista que el LLM puede
+    # solicitar cuando la intencion del usuario requiere consultar catalogo.
     """Busca productos cuyo nombre contenga el texto indicado (no distingue mayúsculas).
 
     Args:
@@ -66,6 +72,8 @@ def buscar_producto(nombre: str) -> Any:
 
 @mcp.tool()
 def consultar_precio(nombre: str) -> Any:
+    # El servidor devuelve el dato fuente; el modelo queda encargado de
+    # explicarlo, no de inventar o calcular el precio.
     """Consulta el precio de un producto.
 
     Args:
@@ -80,6 +88,8 @@ def consultar_precio(nombre: str) -> Any:
 
 @mcp.tool()
 def consultar_stock(nombre: str) -> Any:
+    # La respuesta incluye disponible como booleano para que el agente pueda
+    # razonar sobre stock sin interpretar texto ambiguo.
     """Consulta el stock disponible de un producto.
 
     Args:
@@ -120,6 +130,8 @@ def listar_productos_por_categoria(categoria: str) -> Any:
 @mcp.resource("techstore://politica-garantias")
 def politica_garantias() -> str:
     """Política de garantías: condiciones generales de garantía de los productos vendidos."""
+    # Un resource aporta contexto de referencia estable; a diferencia de una
+    # tool, no representa una accion sobre la tienda.
     return POLITICA_GARANTIAS
 
 
@@ -132,6 +144,8 @@ def categorias() -> str:
 @mcp.prompt(name="asesor_de_ventas")
 def asesor_de_ventas() -> str:
     """Asesor de ventas: orienta al modelo para responder consultas comerciales con tono profesional y cordial."""
+    # Un prompt MCP publica instrucciones reutilizables desde el servidor. El
+    # host puede activarlo y combinarlo con su prompt base.
     return (
         "Eres el asesor de ventas de TechStore, una tienda de tecnología. "
         "Responde las consultas de los clientes con un tono profesional, cordial y cercano, "
