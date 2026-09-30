@@ -1,0 +1,22 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/*.css", "/*.js", "/*.json", "/*.{png,jpg,svg,ico,webp}"]
+  },
+  "mimeTypes": {
+    ".json": "application/json",
+    ".js": "text/javascript",
+    ".css": "text/css"
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Cache-Control": "no-cache"
+  },
+  "routes": [
+    {
+      "route": "/config.js",
+      "headers": { "Cache-Control": "no-store" }
+    }
+  ]
+}

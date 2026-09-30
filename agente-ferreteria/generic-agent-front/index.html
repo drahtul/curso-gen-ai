@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agente Ferreteria</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>Chats</h2>
+        <button id="new-chat" type="button" class="new-chat" title="Nueva conversacion">+ Nuevo</button>
+      </div>
+      <ul id="thread-list" class="thread-list"></ul>
+    </aside>
+
+    <main class="app">
+      <header class="topbar">
+        <button id="sidebar-toggle" type="button" class="ghost icon-btn" aria-label="Mostrar chats">☰</button>
+        <div class="brand">
+          <span class="dot" id="status-dot" title="estado del backend"></span>
+          <h1>Agente Ferreteria</h1>
+        </div>
+      </header>
+
+      <p class="thread">thread_id: <code id="thread-id">—</code></p>
+
+      <section id="messages" class="messages" aria-live="polite">
+        <div class="msg agent">
+          <div class="bubble">
+            Hola. Puedo ayudarte con productos, stock, politicas de la tienda y cotizaciones.
+          </div>
+        </div>
+      </section>
+
+      <div class="suggestions" id="suggestions">
+        <button type="button">Que pinturas de exterior tienen?</button>
+        <button type="button">Hay stock de escaleras?</button>
+        <button type="button">Cual es la politica de devoluciones?</button>
+        <button type="button">Cotizame 12 martillos</button>
+      </div>
+
+      <form id="composer" class="composer" autocomplete="off">
+        <textarea id="input" rows="1" placeholder="Escribi tu mensaje… (Enter para enviar)"></textarea>
+        <button id="send" type="submit">Enviar</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
