@@ -22,10 +22,14 @@ from langfuse.langchain import CallbackHandler
 load_dotenv()
 
 langfuse_handler = CallbackHandler()
+# El callback registra la ejecución del agente para observar latencia, llamadas
+# al LLM, tools utilizadas y consumo, sin intervenir en la decisión del modelo.
 
 _checkpointer = None
 
 def get_checkpointer() -> InMemorySaver:
+    # Se reutiliza un checkpointer por proceso para conservar el estado de los
+    # hilos entre solicitudes. InMemorySaver no es almacenamiento durable.
     global _checkpointer
     if _checkpointer is None:
         _checkpointer = InMemorySaver()
@@ -249,6 +253,8 @@ PRODUCTS = [
         "description": "Martillo demoledor electrico con cable para romper hormigon y mamposteria, con empunadura trasera.",
     },
 ]
+# El catálogo funciona como fuente controlada de grounding. El LLM no debería
+# inventar productos: debe basarse en los datos que una tool le devuelva.
 
 INVENTORY = {
     "pintura": {"units": 42, "unit_price_usd": 34.98},
@@ -297,6 +303,8 @@ def search_catalog(query: str, top_k: int = 3) -> str:
     Use this for any question about what the store sells, product features or
     specifications. Returns the matching product titles with a description snippet.
     """
+    # La tool ejecuta una búsqueda determinista sobre el catálogo y devuelve
+    # evidencia textual que el modelo puede usar para responder.
     words = [w for w in query.lower().split() if w]
     if not words:
         return "NO_RESULTS: the catalog has no product matching that description."
@@ -326,6 +334,8 @@ def check_stock(product_keyword: str) -> str:
     product_keyword must be a single lowercase word, one of:
     pintura, alfombra, auriculares, taladro, escalera, martillo.
     """
+    # La validación limita los datos aceptados a categorías conocidas y evita
+    # que el modelo convierta una suposición en stock o precio.
     key = product_keyword.strip().lower()
     if key not in INVENTORY:
         return (
@@ -346,6 +356,8 @@ def store_policy(topic: str) -> str:
 
     topic must be one of: envio, devoluciones, garantia, pagos, mayorista.
     """
+    # Las políticas se recuperan como fuente de verdad operacional; el LLM las
+    # explica, pero no debe reemplazarlas con conocimiento general.
     key = topic.strip().lower()
     if key not in POLICIES:
         return (
@@ -361,6 +373,8 @@ def quote_total(unit_price_usd: float, quantity: int) -> str:
 
     Always use this instead of doing the arithmetic yourself.
     """
+    # La aritmética y el descuento se ejecutan en Python para que sean
+    # reproducibles y auditables, no como una operación generativa del LLM.
     if quantity <= 0:
         return "INVALID_QUANTITY: quantity must be a positive integer."
 
@@ -404,6 +418,8 @@ SYSTEM_PROMPT = (
 
 
 class AgentState(TypedDict):
+    # add_messages acumula el historial del ciclo agente -> tools -> agente,
+    # que sirve como contexto de trabajo durante la conversación.
     messages: Annotated[list, add_messages]
 
 
@@ -415,6 +431,8 @@ def build_graph():
     llm_with_tools = llm.bind_tools(TOOLS)
 
     def agent_node(state: AgentState) -> dict:
+        # El system prompt impone grounding y reglas de seguridad; el modelo
+        # decide si responde o solicita una tool, pero no ejecuta Python aquí.
         messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
         return {"messages": [llm_with_tools.invoke(messages)]}
 
@@ -423,6 +441,8 @@ def build_graph():
     builder.add_node("tools", ToolNode(tools=TOOLS))
     builder.add_edge(START, "agent")
     builder.add_conditional_edges("agent", tools_condition)
+    # El ciclo permite encadenar operaciones: por ejemplo, buscar productos,
+    # consultar stock y luego calcular un presupuesto.
     builder.add_edge("tools", "agent")
     builder.add_edge("agent", END)
     return builder.compile(checkpointer=get_checkpointer())
@@ -432,6 +452,8 @@ _graph = None
 
 def get_graph():
     """The compiled graph, built once per process and reused across requests."""
+    # Compilar una sola vez reutiliza nodos, tools y checkpointer entre requests
+    # sin reconstruir el grafo en cada llamada HTTP.
     global _graph
     if _graph is None:
         _graph = build_graph()
@@ -441,6 +463,8 @@ def get_graph():
 # --- FastAPI ---------------------------------------------------------------
 
 class ChatRequest(BaseModel):
+    # thread_id permite que el cliente continúe una conversación; si falta, la
+    # API genera un hilo nuevo y aislado.
     message: str
     thread_id: str | None = None
 
@@ -464,9 +488,8 @@ class ChatHistoryResponse(BaseModel):
 def serialize_history(messages: list) -> list[ChatTurn]:
     """Turn the graph's raw message list into the user/agent turns worth showing.
 
-    Tool calls and tool results are internal reasoning steps, not something a
-    customer typed or read, so they are left out; only human turns and the
-    agent's actual replies (AI messages that carry text) are kept.
+    Las llamadas y resultados de tools son pasos internos, no turnos visibles
+    del cliente. Se exponen solo mensajes humanos y respuestas textuales.
     """
     turns: list[ChatTurn] = []
     for message in messages:
@@ -486,6 +509,8 @@ def serialize_history(messages: list) -> list[ChatTurn]:
 
 
 app = FastAPI(title="Hardware store agent")
+# FastAPI ofrece la interfaz HTTP, mientras LangGraph mantiene el estado y
+# coordina el razonamiento y las herramientas del agente.
 
 ALLOWED_ORIGINS = [
     origin.strip()
@@ -507,11 +532,14 @@ app.add_middleware(
 @app.get("/health")
 def health():
     """Liveness/readiness probe for Azure."""
+    # Endpoint liviano para comprobar disponibilidad sin invocar el LLM.
     return {"status": "ok"}
 
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
+    # Cada request se asocia a un thread_id para recuperar el contexto correcto
+    # y se instrumenta con Langfuse para observar la ejecución completa.
     thread_id = request.thread_id or str(uuid.uuid4())
     config = {
         "configurable": {"thread_id": thread_id},
@@ -520,6 +548,8 @@ def chat(request: ChatRequest):
         "metadata": {"langfuse_session_id": thread_id},
     }
 
+    # invoke espera al final del ciclo de tools y devuelve el estado acumulado;
+    # la respuesta visible se extrae del último mensaje del agente.
     final_state = get_graph().invoke(
         {"messages": [HumanMessage(content=request.message)]},
         config,
@@ -531,6 +561,8 @@ def chat(request: ChatRequest):
 
 @app.get("/chat/{thread_id}/history", response_model=ChatHistoryResponse)
 def chat_history(thread_id: str):
+    # Este endpoint consulta el checkpoint sin generar una nueva respuesta y
+    # filtra los mensajes internos antes de devolverlos al frontend.
     config = {"configurable": {"thread_id": thread_id}}
     state = get_graph().get_state(config)
     messages = state.values.get("messages", []) if state.values else []
