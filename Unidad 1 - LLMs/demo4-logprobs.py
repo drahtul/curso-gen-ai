@@ -12,10 +12,10 @@ client = OpenAI(api_key=openai_api_key)
 instrucciones = "Responde unicamente con UNA palabra, en minusculas y sin punto final."
 
 preguntas = [
-    # "Cual es la capital de Uruguay?",
-    # "Dime una palabra esdrújula.",
-    "crea un nombre para una marca de pantufla de invierno.",
-    # "Inventa una palabra que no exista.",
+    "Cual es la capital de Uruguay?",
+    "Dime una palabra esdrújula.",  
+    "Inventa una palabra que no exista.",
+    # "crea un nombre para una marca de pantufla de invierno.",
 ]
 
 for pregunta in preguntas:
@@ -24,14 +24,14 @@ for pregunta in preguntas:
         instructions=instrucciones, # Instruccion que orienta la generacion
         input=pregunta, # Contexto que condiciona el siguiente token
         max_output_tokens=16, # Limite de tokens de salida, no de palabras
-        # Devuelve el token elegido y dos alternativas por posicion.
-        top_logprobs=2,
+        # Devuelve el token elegido y tres alternativas por posicion.
+        top_logprobs=10,
         # Solicita los logprobs para estudiar la distribucion token a token.
         include=["message.output_text.logprobs"],
         # temperature modifica la concentracion de la distribucion; top_p
         # recorta por probabilidad acumulada. Aqui top_p queda en 1.
-        temperature=1,
-        top_p=1
+        # temperature=1,
+        # top_p=1
     )
 
     logprobs = response.output[0].content[0].logprobs

@@ -10,39 +10,35 @@ client = OpenAI(api_key=openai_api_key)
 instrucciones = "Continua el texto del usuario. No respondas, no expliques, no repitas lo ya escrito."
 
 texto = "La biblioteca del pueblo guardaba un libro que"
-print(f"Texto inicial: {texto}\n")
+print("Texto inicial:")
+print(texto)
+print("-" * 60)
 
-for i in range(1, 9):  # 8 iteraciones
-    # La generacion se construye incrementalmente: cada llamada recibe todo
-    # el texto acumulado, en vez de continuar una respuesta internamente.
+for i in range(1, 9):
+    # Esta variante tambien hace una llamada por iteracion, pero usa el texto
+    # final de output_text en lugar de reconstruirlo token por token.
     response = client.responses.create(
         model="gpt-4o-mini",
         instructions=instrucciones,
         input=texto,
         max_output_tokens=16,
         top_logprobs=1,
-        include=["message.output_text.logprobs"]
+        # include=["message.output_text.logprobs"]
     )
 
-    logprobs = response.output[0].content[0].logprobs
+    # Extraemos el fragmento generado. No se solicitan logprobs, asi que no hay informacion token a token.
+    fragmento_nuevo = response.output_text.strip()
 
-    tokens = []
-    for lp in logprobs:
-        # La condicion depende de la tokenizacion concreta del modelo: un
-        # token que comienza con espacio suele iniciar una nueva palabra.
-        if tokens and lp.token.startswith(" "):
-            break
-        tokens.append(lp.token)
+    # Añadimos al texto acumulado
+    if fragmento_nuevo:
+        # La separacion manual mejora la legibilidad, pero no reproduce
+        # necesariamente los limites reales de la tokenizacion.
+        if not texto.endswith((" ", "\n")) and not fragmento_nuevo.startswith((" ", "\n", ".", ",", "!", "?", ";", ":")):
+            texto += " "
+        texto += fragmento_nuevo
 
-    # fragmento_nuevo agrupa tokens hasta ese corte; no equivale
-    # necesariamente a una palabra segun las reglas del lenguaje natural.
-    fragmento_nuevo = "".join(tokens).strip()
-
-    if not fragmento_nuevo:
-        break
-
-    texto += " " + fragmento_nuevo
-
+    # Imprimimos la información de la iteración
     print(f"Iteración {i}")
     print(f"Fragmento nuevo: {fragmento_nuevo}")
-    print(f"Texto acumulado: {texto}\n")
+    print(f"Texto acumulado completo: {texto}")
+    print("-" * 60)

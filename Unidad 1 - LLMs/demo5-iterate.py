@@ -12,7 +12,7 @@ instrucciones = "Continua el texto del usuario. No respondas, no expliques, no r
 
 # texto = "Habia una vez un dragon"
 texto = "La biblioteca del pueblo guardaba un libro que"
-print(texto)
+print(f"Texto inicial: {texto}\n")
 
 for i in range(10):
     # Cada iteracion es una nueva llamada al modelo. Se reenvia el texto
@@ -39,13 +39,16 @@ for i in range(10):
             break
         tokens.append(lp.token)
 
-    palabra = "".join(tokens).strip()
-    if not palabra:
-        break
+    # fragmento_nuevo agrupa tokens hasta ese corte; no equivale
+    # necesariamente a una palabra segun las reglas del lenguaje natural.
+    fragmento_nuevo = "".join(tokens).strip()
 
+    if not fragmento_nuevo:
+        break
     # Reenviar texto completo en cada vuelta facilita el ejemplo, pero aumenta
     # el consumo acumulado de tokens con cada nueva llamada.
-    texto += " " + palabra
-
-    print(f"[{i+1}] +{palabra!r} = {len(tokens)} token(s) {[t for t in tokens]}")
-    print(f"    {texto}")
+    texto += " " + fragmento_nuevo
+    
+    print(f"Iteración {i+1}")
+    print(f"Fragmento nuevo: {fragmento_nuevo} = {len(tokens)} token(s) {[t for t in tokens]}")
+    print(f"Texto acumulado: {texto}\n")
