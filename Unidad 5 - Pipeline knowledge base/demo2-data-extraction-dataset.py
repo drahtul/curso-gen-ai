@@ -48,8 +48,7 @@ Director: {movie['Director']}
 Stars: {movie['Star1']}, {movie['Star2']}, {movie['Star3']}, {movie['Star4']}
 Votes: {movie['No_of_Votes']}
 Gross Revenue: {movie['Gross']}
-Overview:
-{movie['Overview']}
+Overview: {movie['Overview']}
 """.strip()
 
     # Cada documento sera una unidad independiente durante el chunking o la
