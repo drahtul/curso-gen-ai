@@ -55,7 +55,8 @@ graph_builder.add_node("tools", tool_node)
 
 graph_builder.add_edge(START, "agent")
 # tools_condition enruta segun haya tool_calls: si existen va a tools, y si no
-# hay una solicitud pendiente el flujo puede terminar.
+# hay una solicitud pendiente de herramientas, el flujo continua en agent 
+# para que el modelo pueda redactar la respuesta final.
 graph_builder.add_conditional_edges("agent", tools_condition)
 # El resultado de la herramienta vuelve al modelo para que pueda continuar o
 # redactar la respuesta final: agent -> tools -> agent.

@@ -32,9 +32,11 @@ load_dotenv()
 
 llm = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4.1-nano")
 
-# Tope de delegaciones por turno: evita que el supervisor quede rebotando.
+# Tope de delegaciones por turno: evita ciclos de routing y limita el costo de
+# inferencia si el supervisor no logra cerrar una consulta.
 MAX_DELEGACIONES = 4
-# Mensajes del historial que ve el supervisor (corto plazo).
+# Ventana de historial que ve el supervisor: suficiente contexto sin reenviar
+# conversaciones completas en cada decisión.
 VENTANA_HISTORIAL = 12
 
 SIN_INFO = "No cuento con información suficiente para responder esa consulta."
@@ -48,7 +50,8 @@ TOOLS_PROPIAS = [consultar_clima, consultar_pais]
 
 
 class EstadoSistema(TypedDict):
-    messages: Annotated[list, add_messages]   # historial (checkpointer)
+    # add_messages combina mensajes nuevos con los guardados por thread_id.
+    messages: Annotated[list, add_messages]
     user_id: str
     memorias: list[str]                       # recuperadas de largo plazo
     memorias_guardadas: list[str]
@@ -59,7 +62,8 @@ class EstadoSistema(TypedDict):
 
 # ------------------------------------------------------------- subagentes
 
-# Reglas compartidas por todos los subagentes.
+# Estas reglas funcionan como contrato de grounding: una tool es la fuente de
+# datos y el informe debe reconocer explícitamente cuando no encontró nada.
 REGLAS_SUBAGENTE = """
 Reglas de tu informe:
 - Usá únicamente lo que devuelvan tus tools; nada de conocimiento propio.
@@ -128,7 +132,8 @@ class Subagente:
             tools_usadas, con_datos = [], False
         else:
             # El subagente NO ve el historial completo: recibe una tarea
-            # autocontenida + el contexto mínimo. Así un dominio no contamina a otro.
+            # autocontenida y contexto mínimo. Así se reduce la contaminación
+            # entre dominios y se hace explícito qué información puede usar.
             contexto = []
             if state["memorias"]:
                 contexto.append("Datos conocidos del usuario:\n" + "\n".join(f"- {m}" for m in state["memorias"]))
@@ -137,6 +142,8 @@ class Subagente:
                     f"- [{i['subagente']}] {i['respuesta']}" for i in state["informes"]))
             entrada = tarea + ("\n\n" + "\n\n".join(contexto) if contexto else "")
 
+            # Cada especialista puede ejecutar varias tools internamente, pero
+            # devuelve un único informe que el supervisor incorpora al estado.
             resultado = await self.agente.ainvoke({"messages": [HumanMessage(content=entrada)]})
             tools_usadas, con_datos = self._auditar_tools(resultado["messages"])
             respuesta = resultado["messages"][-1].content
@@ -243,6 +250,9 @@ class RespuestaFinal(BaseModel):
 
 
 def construir_grafo(tools_github: list):
+    # Las tools se inyectan al construir el grafo: esto permite que la falta de
+    # MCP deje al especialista disponible como error explícito, sin romper los
+    # otros dominios.
     subagentes = [
         Subagente(
             "conocimiento",
@@ -270,6 +280,8 @@ def construir_grafo(tools_github: list):
     prompt_supervisor = _prompt_supervisor(subagentes)
 
     def cargar_memoria(state: EstadoSistema) -> dict:
+        # Este nodo es el comienzo de cada turno: recupera memoria larga y
+        # reinicia los acumuladores que solo pertenecen a la consulta actual.
         consulta = state["messages"][-1].content
         memorias = recuperar_memorias(state["user_id"], consulta)
         print(f"\n  [memoria] recuperadas ({len(memorias)}): {memorias or 'ninguna'}")
@@ -277,6 +289,8 @@ def construir_grafo(tools_github: list):
         return {"memorias": memorias, "informes": [], "tarea": "", "delegaciones": 0, "memorias_guardadas": []}
 
     def supervisor(state: EstadoSistema) -> Command:
+        # El supervisor decide rutas, pero nunca redacta la respuesta ni llama
+        # tools: esa separación hace auditable la procedencia de cada dato.
         if state["delegaciones"] >= MAX_DELEGACIONES:
             print(f"\n  [supervisor] tope de {MAX_DELEGACIONES} delegaciones alcanzado -> FINISH")
             return Command(goto="respuesta_final")
@@ -322,6 +336,8 @@ def construir_grafo(tools_github: list):
             print("\n  [respuesta_final] ningún especialista obtuvo datos -> sin información")
             return {"messages": [AIMessage(content=SIN_INFO_COMPLETO)]}
 
+        # La voz final recibe fuentes delimitadas y la ventana de historial,
+        # pero no acceso directo a herramientas: sintetiza, no investiga.
         texto_informes = "\n\n".join(f"[{i['subagente']}]\n{i['respuesta']}" for i in informes) or "(ninguno)"
         memorias = "\n".join(f"- {m}" for m in state["memorias"]) or "(ninguna)"
         instrucciones = f"""Sos la voz de un asistente de entretenimiento e información general.
@@ -362,11 +378,15 @@ Reglas:
         return {"messages": [AIMessage(content=texto)]}
 
     def extraer_memoria(state: EstadoSistema) -> dict:
+        # La extracción ocurre después de responder: la conversación no se
+        # demora por el paso de persistencia y el último mensaje es inequívoco.
         ultimo_humano = next(m for m in reversed(state["messages"]) if isinstance(m, HumanMessage))
         guardadas = extraer_y_guardar(state["user_id"], ultimo_humano.content)
         print(f"\n  [memoria] extracción: {guardadas or 'nada para guardar'}")
         return {"memorias_guardadas": guardadas}
 
+    # El grafo hace visible el ciclo supervisor -> especialista -> supervisor y
+    # garantiza el cierre lineal respuesta -> extracción -> fin.
     builder = StateGraph(EstadoSistema)
     builder.add_node("cargar_memoria", cargar_memoria)
     builder.add_node(

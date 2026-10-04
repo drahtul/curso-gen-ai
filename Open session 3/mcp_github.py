@@ -30,6 +30,8 @@ TOOLS_PERMITIDAS = {
 
 async def cargar_tools_github() -> list:
     """Se conecta al servidor MCP de GitHub y devuelve sus tools de lectura."""
+    # MCP negocia las capacidades con un servidor remoto; el cliente no
+    # implementa la lógica de GitHub, solamente descubre y filtra tools.
     client = MultiServerMCPClient(
         {
             "github": {
@@ -44,6 +46,8 @@ async def cargar_tools_github() -> list:
         }
     )
     todas = await client.get_tools()
+    # La lista blanca limita la superficie de acción: el agente puede consultar
+    # información, pero no crear, editar ni borrar recursos de GitHub.
     tools = [t for t in todas if t.name in TOOLS_PERMITIDAS]
 
     print(f"[mcp] GitHub MCP conectado: {len(todas)} tools expuestas, "

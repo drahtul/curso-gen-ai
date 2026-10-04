@@ -52,6 +52,9 @@ def consultar_clima(ciudad: str) -> str:
     'Montevideo' o 'Madrid'. Si el usuario pregunta por la capital de un país,
     primero obtené la capital con `consultar_pais` y luego llamá a esta tool.
     """
+    # El flujo tiene dos etapas: geocodificar el nombre y usar las coordenadas
+    # obtenidas para consultar el pronóstico. La segunda llamada no es segura si
+    # la primera no devolvió un lugar válido.
     try:
         geo = requests.get(
             OPEN_METEO_GEO_URL,
@@ -73,6 +76,8 @@ def consultar_clima(ciudad: str) -> str:
         p for p in (lugar.get("name"), lugar.get("admin1"), lugar.get("country")) if p
     )
 
+    # Se consulta el clima solamente después de resolver la ciudad; de ese modo
+    # la respuesta queda anclada a una ubicación concreta y verificable.
     try:
         clima = requests.get(
             OPEN_METEO_FORECAST_URL,
@@ -93,6 +98,8 @@ def consultar_clima(ciudad: str) -> str:
     if not actual:
         return f"SIN_RESULTADOS: no hay datos de clima disponibles para {nombre}."
 
+    # El modelo recibe una descripción en español en lugar del código numérico
+    # WMO, lo que reduce la necesidad de que interprete datos técnicos.
     condicion = WEATHER_CODES.get(actual.get("weathercode"), "condición desconocida")
     lineas = [
         f"Clima en {nombre}:",
@@ -123,6 +130,8 @@ def consultar_pais(pais: str) -> str:
     El nombre del país debe pasarse en INGLÉS (por ejemplo 'Japan', 'Brazil',
     'Norway', 'France'), tal como lo espera la API de países.
     """
+    # La URL se codifica antes de interpolar el nombre para tratarlo como dato,
+    # no como parte accidental de la ruta HTTP.
     url = f"{COUNTRIES_API_URL}/countries/{requests.utils.quote(pais)}"
 
     try:
@@ -139,6 +148,8 @@ def consultar_pais(pais: str) -> str:
     if not respuesta.ok:
         return f"ERROR: la API de países respondió {respuesta.status_code}."
 
+    # La tool normaliza la respuesta de la API a texto compacto y estable para
+    # que el subagente pueda citar los campos sin inventar los faltantes.
     d = respuesta.json()
     monedas = ", ".join(
         f"{m.get('name')} ({m.get('code')} {m.get('symbol', '')})".strip()

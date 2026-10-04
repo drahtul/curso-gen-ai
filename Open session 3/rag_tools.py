@@ -12,7 +12,8 @@ from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
-# Se usa paraphrase-multilingual-MiniLM-L12-v2 en lugar de all-MiniLM-L6-v2 porque toda la informacion está en español.
+# Se usa un modelo multilingüe porque el catálogo y las consultas están en
+# español; el embedding convierte texto en vectores comparables por significado.
 EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 INDEX_CONOCIMIENTO = os.getenv("PINECONE_KNOWLEDGE_INDEX", "os3-conocimiento")
 
@@ -39,6 +40,8 @@ ETIQUETAS = (
 
 
 def _format_match(match: dict) -> str:
+    # El LLM recibe una representación legible que conserva metadatos y score;
+    # el score permite auditar por qué un resultado superó el umbral.
     meta = match.get("metadata") or {}
     extras = " | ".join(f"{etiqueta}: {meta[clave]}" for clave, etiqueta in ETIQUETAS if meta.get(clave))
     partes = [f"Título: {meta.get('title', 'Sin título')}"]
@@ -55,17 +58,23 @@ def buscar_en_indice(consulta: str, namespace: str, dominio: str) -> str:
     Devuelve SIN_RESULTADOS si el índice no existe o ningún resultado supera el
     umbral: el subagente usa esa señal para admitir que no tiene el dato.
     """
+    # La ausencia del índice se expresa como SIN_RESULTADOS para que el
+    # subagente reconozca explícitamente que no puede completar el dato.
     if INDEX_CONOCIMIENTO not in [i["name"] for i in pinecone_instance.list_indexes()]:
         return SIN_INFO.format(dominio=dominio) + (
             f" (el índice '{INDEX_CONOCIMIENTO}' no existe: correr ingesta_rag.py)"
         )
 
+    # La consulta usa el mismo modelo de embeddings que la ingesta: sin esa
+    # simetría, la similitud coseno no representaría el mismo espacio semántico.
     resultados = pinecone_instance.Index(INDEX_CONOCIMIENTO).query(
         vector=embedding_model_instance.encode(consulta).tolist(),
         top_k=TOP_K,
         namespace=namespace,
         include_metadata=True,
     )
+    # Filtrar antes de construir el prompt evita que coincidencias débiles
+    # introduzcan contexto irrelevante o favorezcan respuestas inventadas.
     matches = [m for m in resultados.get("matches", []) if m["score"] >= MIN_SCORE]
     if not matches:
         return SIN_INFO.format(dominio=dominio)

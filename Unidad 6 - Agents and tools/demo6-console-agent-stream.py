@@ -6,6 +6,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from typing import Annotated
 from langgraph.graph.message import add_messages
 import requests
+import time
 from typing_extensions import TypedDict
 from dotenv import load_dotenv
 import os
@@ -114,6 +115,8 @@ graph_builder.add_edge("agent", END)
 
 graph = graph_builder.compile()
 
+STREAM_DELAY_SECONDS = 0.03
+
 def run(user_input: str):
     """Print the answer token by token, as the model writes it."""
     print()
@@ -126,7 +129,10 @@ def run(user_input: str):
         # AIMessageChunk es una parte acumulable del mensaje del modelo. El
         # flush inmediato reduce la latencia percibida en la consola.
         if isinstance(chunk, AIMessageChunk) and chunk.content:
-            print(chunk.content, end="", flush=True)
+            for character in chunk.content:
+                print(character, end="", flush=True)
+                #agregdo: delay para que se vea mas natural la escritura del modelo
+                time.sleep(STREAM_DELAY_SECONDS)
     print("\n")
 
 

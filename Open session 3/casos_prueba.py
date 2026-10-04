@@ -43,6 +43,8 @@ SESION_2 = "¿Qué receta me recomendás para la cena?"
 
 
 async def correr(grupos: list[str]) -> None:
+    # Un mismo grafo permite observar que el thread conserva contexto corto,
+    # mientras que cada grupo usa un thread separado para aislar los escenarios.
     graph = await crear_sistema()
     for grupo in grupos:
         for titulo, turnos in CASOS[grupo]:
@@ -55,12 +57,16 @@ async def correr(grupos: list[str]) -> None:
 
 
 async def sesion_unica(consulta: str, thread: str) -> None:
+    # Esta función es el proceso mínimo usado por la prueba de persistencia:
+    # cada invocación nace sin el checkpointer del proceso anterior.
     graph = await crear_sistema()
     print(f"\nUsuario: {consulta}")
     print(f"\nAsistente: {await preguntar(graph, consulta, USUARIO_PRUEBA, thread)}")
 
 
 def caso_largo_plazo() -> None:
+    # Se limpia primero la memoria persistente para que el resultado mida solo
+    # lo aprendido durante estos dos procesos y no datos de ejecuciones previas.
     print("\n" + "#" * 80 + "\n# Memoria semántica de largo plazo (2 procesos)\n" + "#" * 80)
     print(f"Se borran memorias previas de '{USUARIO_PRUEBA}': {borrar_memorias(USUARIO_PRUEBA)}")
     for n, consulta in ((1, SESION_1), (2, SESION_2)):

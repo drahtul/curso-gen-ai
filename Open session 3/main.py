@@ -20,6 +20,8 @@ from memoria import borrar_memorias, listar_memorias
 
 
 async def crear_sistema():
+    # La conexión MCP es opcional: el grafo se construye aunque GitHub no esté
+    # disponible, lo que permite seguir usando RAG, memoria y APIs propias.
     try:
         tools_mcp = await cargar_tools_github()
     except Exception as exc:  # sin MCP el resto del sistema sigue funcionando
@@ -30,6 +32,8 @@ async def crear_sistema():
 
 async def preguntar(graph, consulta: str, user_id: str, thread_id: str) -> str:
     """Ejecuta un turno e imprime el resumen de auditoría."""
+    # El thread_id identifica la memoria conversacional de corto plazo; el
+    # user_id, en cambio, identifica la memoria semántica persistente.
     config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 30}
     print("\n--- traza ---")
     estado = await graph.ainvoke(
@@ -47,6 +51,8 @@ async def preguntar(graph, consulta: str, user_id: str, thread_id: str) -> str:
 
 
 async def main() -> None:
+    # La CLI separa la configuración de identidad/sesión del contenido de cada
+    # consulta, para poder demostrar threads y usuarios diferentes.
     parser = argparse.ArgumentParser()
     parser.add_argument("--user", default="danilo")
     parser.add_argument("--thread", default=None)
@@ -62,6 +68,8 @@ async def main() -> None:
     print("=" * 80)
 
     while True:
+        # Leer en un hilo evita bloquear el event loop mientras input espera al
+        # usuario; así las operaciones asíncronas conservan su modelo de ejecución.
         try:
             consulta = (await asyncio.to_thread(input, "\nConsulta: ")).strip()
         except (EOFError, KeyboardInterrupt):

@@ -39,6 +39,9 @@ llm_dedup = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), model="gpt-4.1-nano"
 
 
 def _crear_indice_si_falta() -> None:
+    # La memoria persistente necesita un índice separado del conocimiento:
+    # mezclar ambos dominios haría que una preferencia del usuario apareciera
+    # como si fuera un dato del catálogo.
     nombres = [i["name"] for i in pinecone_instance.list_indexes()]
     if INDEX_MEMORIA not in nombres:
         print(f"[memoria] creando índice '{INDEX_MEMORIA}' en Pinecone...")
@@ -61,6 +64,8 @@ def _id_memoria(user_id: str, texto: str) -> str:
 
 
 def _embed(texto: str) -> list:
+    # La consulta y el hecho usan el mismo espacio vectorial para que la
+    # recuperación semántica compare significado y no coincidencia literal.
     return embedding_model_instance.encode(texto).tolist()
 
 
@@ -79,6 +84,8 @@ def _buscar(user_id: str, texto: str, k: int) -> list:
 
 def recuperar_memorias(user_id: str, consulta: str) -> list[str]:
     """Hechos del usuario relevantes para la consulta actual."""
+    # Recuperar antes de razonar permite que el supervisor incorpore contexto
+    # persistente sin confundirlo con el historial del thread actual.
     return [
         m["metadata"]["texto"]
         for m in _buscar(user_id, consulta, TOP_K_MEMORIA)
@@ -95,6 +102,8 @@ def _ids_usuario(user_id: str) -> list[str]:
 
 
 def listar_memorias(user_id: str) -> list[str]:
+    # list/fetch se usa para la vista administrativa completa, no para el
+    # ranking semántico que alimenta una respuesta puntual.
     ids = _ids_usuario(user_id)
     if not ids:
         return []
@@ -103,6 +112,8 @@ def listar_memorias(user_id: str) -> list[str]:
 
 
 def borrar_memorias(user_id: str) -> int:
+    # El prefijo del ID funciona como partición lógica por usuario y permite
+    # borrar sus recuerdos sin afectar a otros usuarios.
     ids = _ids_usuario(user_id)
     if ids:
         index.delete(ids=ids, namespace=NAMESPACE)
@@ -143,6 +154,8 @@ persona y en español. Si varios datos son del mismo tipo, combinalos en un
 
 
 def _clasificar_relacion(nuevo: str, existente: str) -> str:
+    # La similitud vectorial encuentra candidatos; el LLM decide si el texto es
+    # duplicado, contradicción, actualización o un hecho independiente.
     prompt = (
         "Compará dos afirmaciones sobre el mismo usuario y respondé con una sola "
         "palabra: DUPLICATE, CONTRADICTION, UPDATE o NEW.\n"
@@ -161,6 +174,8 @@ def _clasificar_relacion(nuevo: str, existente: str) -> str:
 
 def _guardar_hecho(user_id: str, hecho: str) -> str:
     """Guarda un hecho deduplicando contra el recuerdo más parecido del usuario."""
+    # Primero se busca un único vecino: solo si supera UMBRAL_DEDUP se invoca
+    # una clasificación más costosa para decidir si reemplazarlo o conservarlo.
     cercanos = _buscar(user_id, hecho, 1)
     if cercanos and cercanos[0]["score"] >= UMBRAL_DEDUP:
         previo = cercanos[0]
@@ -191,6 +206,8 @@ def extraer_y_guardar(user_id: str, mensaje_usuario: str) -> list[str]:
 
     Devuelve líneas de log ('hecho -> resultado') para la auditoría.
     """
+    # Separar extracción y conversación evita que el LLM que responde al usuario
+    # tenga que decidir simultáneamente qué información persistir.
     extraccion = llm_extraccion.with_structured_output(HechosExtraidos).invoke([
         SystemMessage(content=PROMPT_EXTRACCION),
         ("human", f"Último mensaje del usuario: {mensaje_usuario}"),
