@@ -20,6 +20,7 @@ load_dotenv()
 openai_key = os.getenv("OPENAI_API_KEY")
 
 USER_ID = "user-1"
+MEMORY_NAMESPACE = "demo4-semantic-memory"
 
 
 # Memoria semantica: almacena hechos o preferencias y los recupera por
@@ -27,7 +28,7 @@ USER_ID = "user-1"
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 pinecone_client = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 pinecone_index = pinecone_client.Index(os.getenv("PINECONE_INDEX_NAME", "semantic-memory"))
-semantic_store = PineconeVectorStore(index=pinecone_index, embedding=embeddings, namespace="demo4-semantic-memory")
+semantic_store = PineconeVectorStore(index=pinecone_index, embedding=embeddings, namespace=MEMORY_NAMESPACE)
 
 
 def retrieve_semantic_memories(query: str, k: int = 3) -> list:

@@ -1,7 +1,8 @@
 import asyncio
 from contextlib import AsyncExitStack
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+# from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 from langchain_mcp_adapters.tools import load_mcp_tools # type: ignore
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
@@ -39,7 +40,8 @@ class PokemonMCPAgent:
         # Streamable HTTP mantiene canales de lectura/escritura con el servidor
         # remoto; no se ejecuta el servidor dentro de este proceso.
         read, write, _ = await self._exit_stack.enter_async_context(
-            streamablehttp_client(
+            # streamablehttp_client( deprecado, usar streamable_http_client en su lugar
+            streamable_http_client(
                 MCP_SERVER_URL,
                 headers={"Authorization": f"Bearer {mcp_api_key}"},
             )

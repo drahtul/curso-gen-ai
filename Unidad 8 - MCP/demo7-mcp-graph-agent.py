@@ -1,8 +1,9 @@
 import asyncio
 from contextlib import AsyncExitStack
+import httpx
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
-from langchain_mcp_adapters.tools import load_mcp_tools # type: ignore
+from mcp.client.streamable_http import streamable_http_client
+from langchain_mcp_adapters.tools import load_mcp_tools 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from langgraph.graph import START, END, StateGraph
@@ -42,10 +43,16 @@ class GithubMCPAgent:
         """Initialize MCP session and load available tools."""
         # La sesion MCP y la memoria conversacional son capas distintas:
         # una accede a herramientas remotas y la otra conserva mensajes.
-        read, write, _ = await self._exit_stack.enter_async_context(
-            streamablehttp_client(
-                MCP_SERVER_URL,
+        http_client = await self._exit_stack.enter_async_context(
+            httpx.AsyncClient(
                 headers={"Authorization": f"Bearer {mcp_api_key}"},
+                timeout=None,
+            )
+        )
+        read, write, _ = await self._exit_stack.enter_async_context(
+            streamable_http_client(
+                MCP_SERVER_URL,
+                http_client=http_client,
             )
         )
         self.session = await self._exit_stack.enter_async_context(ClientSession(read, write))

@@ -6,7 +6,7 @@ from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 from typing import Annotated
 from langgraph.graph.message import add_messages
-import requests
+# import requests
 from typing_extensions import TypedDict
 from dotenv import load_dotenv
 import os
@@ -156,6 +156,8 @@ def summarizer_node(state: AgentState):
 # tool_node = ToolNode(tools=tools)
 
 graph_builder = StateGraph(AgentState)
+
+# implementación con herramientas (comentada para simplificar el demo):
 
 # graph_builder.add_node("agent", agent_node)
 # graph_builder.add_node("tools", tool_node)

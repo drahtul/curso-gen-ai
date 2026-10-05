@@ -29,10 +29,9 @@ semantic_store = PineconeVectorStore(index=pinecone_index, embedding=embeddings,
 llm = ChatOpenAI(openai_api_key=openai_key, model="gpt-4.1-nano")
 
 RELATED_MEMORIES_TOP_K = 10
-SIMILARITY_SCORE_THRESHOLD = 0.6
-# El score ordena los candidatos y permite identificar los mas cercanos.
-# No bloquea la clasificacion: valores distintos del mismo dato, como dos
-# nombres, pueden tener poca similitud y aun asi ser una contradiccion.
+# Se revisan varios candidatos y se deja que el LLM determine si cada uno esta
+# relacionado. Asi una contradiccion textual, como cambiar de nombre, no
+# depende de que los dos textos superen un umbral de similitud.
 
 
 def deterministic_id(text: str, user_id: str) -> str:
@@ -58,7 +57,6 @@ def find_related_memories(text: str):
         (
             match["id"],
             match["metadata"].get("text", ""),
-            match["score"],
         )
         for match in results.get("matches", [])
     ]
@@ -117,20 +115,16 @@ def save_user_preference(preference: str) -> str:
     - inserts normally if it's genuinely new information.
     """
     
-    # El score conserva la prioridad de Pinecone; la decision final la toma
-    # el LLM para no perder contradicciones con baja similitud textual.
+    # La decision final la toma el LLM, porque dos valores diferentes del
+    # mismo dato pueden tener poca similitud textual.
     related_memories = find_related_memories(preference)
     obsolete_ids = []
     duplicate_memory = None
 
-    # El LLM decide la relacion semantica; el score se conserva como umbral
-    # informativo, pero no impide comparar candidatos con score bajo.
-    for closest_id, closest_text, score in related_memories:
-        print(f"  [dedup] recuerdo mas cercano: '{closest_text}' (score={score:.3f})")
-        if score >= SIMILARITY_SCORE_THRESHOLD:
-            print("  [dedup] candidato con similitud alta")
-        else:
-            print("  [dedup] candidato con similitud baja; se compara igualmente")
+    # El LLM decide la relacion semantica; el score de Pinecone solo define
+    # el orden de los candidatos que llegan a esta etapa.
+    for closest_id, closest_text in related_memories:
+        print(f"  [dedup] recuerdo relacionado: '{closest_text}'")
 
         relation = classify_relation(preference, closest_text)
         print(f"  [dedup] el LLM clasifico la relacion como: {relation}")
