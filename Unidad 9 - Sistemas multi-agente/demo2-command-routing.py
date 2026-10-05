@@ -45,7 +45,8 @@ def general(state: AgentState) -> Command:
 
 builder = StateGraph(AgentState)
 # Declarar destinos documenta las rutas posibles y permite dibujarlas; la
-# seleccion concreta ocurre dentro de triage mediante goto.
+# seleccion concreta ocurre dentro de triage mediante goto. Se podría quitar destinations
+# y el grafo seguiria funcionando, pero no se dibujaria la arista condicional.
 builder.add_node("triage", triage, destinations=("billing", "engineering", "general"))
 builder.add_node("billing", billing)
 builder.add_node("engineering", engineering)

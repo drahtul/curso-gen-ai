@@ -37,9 +37,9 @@ def summarize(state: AgentState) -> dict:
 def route(state: AgentState) -> str:
     """A conditional edge is just a function returning the name of the next node."""
     # La arista condicional separa la decision de routing de la ejecucion del
-    # nodo especialista.
+    # nodo especialista (technical_node o general_node). Esto permite que la decision de routing
+    # pueda ser tomada por un LLM, una herramienta externa o un algoritmo local determinista
     return "technical_node" if state["topic"] == "technical" else "general_node"
-
 
 builder = StateGraph(AgentState)
 builder.add_node("classify", classify)
@@ -48,6 +48,9 @@ builder.add_node("general_node", general_node)
 builder.add_node("summarize", summarize)
 
 builder.add_edge(START, "classify")
+# La arista condicional permite que el flujo se bifurque en dos nodos distintos
+# dependiendo del valor de topic. La funcion route es determinista, pero podria
+# ser reemplazada por una funcion que tome decisiones basadas en la salida de un LLM.
 builder.add_conditional_edges("classify", route, ["technical_node", "general_node"])
 builder.add_edge("technical_node", "summarize")
 builder.add_edge("general_node", "summarize")

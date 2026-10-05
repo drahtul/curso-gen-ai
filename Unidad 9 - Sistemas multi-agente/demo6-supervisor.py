@@ -55,7 +55,7 @@ writer_agent = create_agent(
 
 class Route(BaseModel):
     # El contrato estructurado limita las decisiones del coordinador a dos
-    # trabajadores o FINISH.
+    # trabajadores o FINISH (se utiliza un enumerado). La razón es un texto libre que explica la decisión.
     next: Literal["researcher", "writer", "FINISH"] = Field(
         description="Who should act next, or FINISH when the answer is complete."
     )

@@ -39,6 +39,8 @@ def human_review(state: AgentState) -> Command:
     """Pause the graph: a human must approve, reject or edit the query before it runs."""
     # interrupt pausa el grafo de forma recuperable; no es solo un input local.
     # El estado queda asociado al thread_id del checkpointer.
+    # interrupt devuelve un dict con la informacion que se le pasa, para que el humano pueda
+    # tomar una decision informada en un prompt de LLM, un formulario web o cualquier otra interfaz.
     decision = interrupt(
         {
             "question": "Run this query? (approve / reject / or type a replacement query)",

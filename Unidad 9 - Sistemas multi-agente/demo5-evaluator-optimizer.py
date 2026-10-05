@@ -13,7 +13,7 @@ load_dotenv()
 openai_key = os.getenv("OPENAI_API_KEY")
 llm = ChatOpenAI(api_key=openai_key, model="gpt-4o-mini")
 
-MAX_ITERATIONS = 3
+MAX_ITERATIONS = 6
 
 CRITERIA = (
     "1) at most 60 words, "

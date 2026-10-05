@@ -41,10 +41,10 @@ class WorkerInput(TypedDict):
     question: str
     specialist: str
 
-
+# El router clasifica la pregunta y decide que especialistas deben responder. 
+# Luego, se ejecutan en paralelo los estados de cada especialista y finalmente se sintetizan las respuestas en una sola.
 def classify(state: RouterState) -> dict:
-    # La salida estructurada limita los dominios validos antes de crear las
-    # ejecuciones paralelas.
+    # La salida estructurada limita los dominios validos antes de crear las ejecuciones paralelas.
     decision = llm.with_structured_output(Classification).invoke(
         [
             ("system", "Classify which specialists (billing, technical, legal) must answer."),
@@ -54,10 +54,10 @@ def classify(state: RouterState) -> dict:
     print(f"  [router] -> {decision.specialists}")
     return {"specialists": decision.specialists}
 
-
+# fan_out ejecuta un estado por cada especialista, creando un flujo paralelo de ejecuciones.
 def fan_out(state: RouterState):
     # Send crea estados parciales dinamicos para el mismo nodo specialist;
-    # se diferencia de Command, que dirige una ejecucion a un destino.
+    # se diferencia de Command, que dirige una ejecucion a un destino
     return [
         Send("specialist", {"question": state["question"], "specialist": name})
         for name in state["specialists"]

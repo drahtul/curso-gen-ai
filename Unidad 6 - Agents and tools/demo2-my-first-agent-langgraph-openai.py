@@ -42,6 +42,7 @@ def agent_node(state: AgentState):
     """Call the LLM with the current messages."""
     messages = state["messages"]
     response = llm_with_tools.invoke(messages)
+    #se retorna un diccionario con la respuesta del modelo, que se acumula en el estado del grafo
     return {"messages": [response]}
 
 tool_node = ToolNode(tools=tools)

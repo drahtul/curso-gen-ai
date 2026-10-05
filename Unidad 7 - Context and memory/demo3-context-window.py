@@ -164,6 +164,7 @@ graph_builder = StateGraph(AgentState)
 # graph_builder.add_node("summarizer", summarizer_node)
 
 # graph_builder.add_edge(START, "agent")
+# tools_condition es una funcion que decide si el flujo debe ir a tools o a summarizer. Definida en langgraph.prebuilt.
 # graph_builder.add_conditional_edges("agent", tools_condition, {"tools": "tools", END: "summarizer"})
 # graph_builder.add_edge("tools", "agent")
 # graph_builder.add_edge("summarizer", END)
