@@ -32,7 +32,7 @@ def search_kb(topic: str) -> str:
     hits = [text for name, text in KNOWLEDGE_BASE.items() if name in key or key in name]
     return "\n".join(hits) if hits else f"No entry for '{topic}'."
 
-
+# MessagesState es un estado preconstruido que mantiene la conversacion entre turnos.
 class SwarmState(MessagesState):
     # active_agent es memoria de control: indica quien debe recibir el turno,
     # mientras messages conserva el contenido conversacional.
