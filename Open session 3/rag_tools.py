@@ -1,7 +1,7 @@
 """Tools de RAG del subagente de conocimiento (base vectorial propia en Pinecone).
 
 Un único índice con un namespace por dominio (peliculas, libros, recetas). Se
-carga con `python ingesta_rag.py` a partir de data/conocimiento.json.
+carga con `python _ingesta_rag.py` a partir de data/conocimiento.json.
 """
 import os
 
